@@ -1,0 +1,36 @@
+{
+  "name": "msu-pakawit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MSU Pakawit - Offline-First Peer-to-Peer Micro-Storefront & Errand Network for Mindanao State University",
+  "workspaces": [
+    "client",
+    "api"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=client",
+    "dev:api": "npm run start:dev --workspace=api",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspaces",
+    "build:client": "npm run build --workspace=client",
+    "build:api": "npm run build --workspace=api",
+    "test": "npm run test --workspaces --if-present",
+    "test:client": "npm run test --workspace=client",
+    "test:api": "npm run test --workspace=api",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "keywords": [
+    "msu-pakawit",
+    "offline-first",
+    "pwa",
+    "dexie",
+    "indexeddb",
+    "nestjs",
+    "react",
+    "typeorm",
+    "peer-to-peer",
+    "micro-storefront"
+  ],
+  "author": "MSU Pakawit Engineering Team",
+  "license": "UNLICENSED"
+}

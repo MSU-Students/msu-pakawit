@@ -1,0 +1,16 @@
+{
+  "short_name": "MSU Pakawit",
+  "name": "MSU Pakawit - Offline Errand & Micro-Storefront",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#7B1113",
+  "background_color": "#F8FAFC",
+  "orientation": "portrait"
+}
