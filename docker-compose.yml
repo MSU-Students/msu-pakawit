@@ -32,7 +32,9 @@ services:
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: msu_pakawit_db
       DATABASE_SYNCHRONIZE: "true"
-      JWT_SECRET: msu_pakawit_dev_secret_key_2026
+      JWT_SECRET: msu_pakawit_local_dev_jwt_secret_2026
+      JWT_ACCESS_TOKEN_TTL_SECONDS: 3600
+      BOOTSTRAP_ADMIN_SECRET: msu_pakawit_local_bootstrap_secret_2026
     ports:
       - "5000:5000"
     depends_on:

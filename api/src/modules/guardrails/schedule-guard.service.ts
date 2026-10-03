@@ -1,17 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AcademicSchedule } from './entities/academic-schedule.entity';
-import { User } from './entities/user.entity';
+import { UserService } from '../users/user.service';
 
 @Injectable()
 export class ScheduleGuardService {
-  constructor(
-    @InjectRepository(AcademicSchedule)
-    private readonly scheduleRepo: Repository<AcademicSchedule>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   private timeToMinutes(timeStr: string): number {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -20,10 +12,7 @@ export class ScheduleGuardService {
   }
 
   async checkCourierScheduleLock(msuIdNumber: string, date: Date = new Date()) {
-    const user = await this.userRepo.findOne({
-      where: { msuIdNumber },
-      relations: ['academicSchedules'],
-    });
+    const user = await this.userService.findByMsuIdWithSchedules(msuIdNumber);
 
     if (!user || !user.academicSchedules || user.academicSchedules.length === 0) {
       return {

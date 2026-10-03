@@ -32,6 +32,7 @@ async function bootstrap() {
       'Offline-First Peer-to-Peer Micro-Storefront & Errand Network for Mindanao State University (Sprint 0 Inception API Architecture)',
     )
     .setVersion('0.1.0')
+    .addBearerAuth()
     .addTag('Virtual Storefront & Catalog (Team 1)')
     .addTag('Dispatch & Courier Logistics (Team 2)')
     .addTag('Offline Sync & Reconciliation (Team 3)')
