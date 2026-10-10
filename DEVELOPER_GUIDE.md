@@ -59,13 +59,15 @@ msu-pakawit/
     ├── Dockerfile             # Multi-stage container build
     └── src/
         ├── main.ts            # NestJS bootstrap, Swagger OpenAPI & validation pipes
-        ├── app.module.ts      # Root module importing all 5 domain modules
+        ├── app.module.ts      # Root module importing domain modules
         ├── modules/
         │   ├── storefront/    # [Team 1] Store & Product entities, service, controller
         │   ├── dispatch/      # [Team 2] ErrandOrder entity, runner assignment
         │   ├── sync/          # [Team 3] SyncJournal entity, batch outbox reconciliation
-        │   ├── guardrails/    # [Team 4] User, Schedule, OTP entities, time-lock service
-        │   └── shared/        # [Team 5] TypeORM database config, health check
+        │   ├── users/         # [Team 4] User entity, account and role management
+        │   ├── auth/          # [Team 4] Username/password login and JWT issuance
+        │   ├── guardrails/    # [Team 4] Academic schedules, OTP entities and services
+        │   └── shared/        # [Team 5] TypeORM configuration, health check and JWT verification
         └── __tests__/         # Backend unit and integration test suite
 ```
 
@@ -80,7 +82,7 @@ The development organization consists of **25 developers divided into 5 cross-fu
 | **Team 1** | **Virtual Storefront & Catalog** | `storefront/`: StoreBuilder, ProductCard, CatalogGrid, zero-capital pricing calculations | `storefront/`: `Store` & `Product` entities, catalog CRUD, markup pricing rules |
 | **Team 2** | **Dispatch & Courier Logistics** | `dispatch/`: ErrandFeed, task status lifecycle, runner claim triggers | `dispatch/`: `ErrandOrder` entity, runner dispatch engine, task state transitions |
 | **Team 3** | **Offline Sync & PWA Core** | `offline/`: Dexie.js `db.ts` schemas, outbox queue manager, offline event listeners | `sync/`: `SyncJournal` entity, `/api/sync/batch` reconciliation, idempotency |
-| **Team 4** | **Identity, Security & Guardrails** | `guardrails/`: AcademicScheduleGuard, schedule conflict validator, 4-digit OTP modal | `guardrails/`: `User`, `AcademicSchedule`, `OTPLog` entities, time-lock guard service, OTP engine |
+| **Team 4** | **Identity, Security & Guardrails** | `guardrails/`: AcademicScheduleGuard, schedule conflict validator, 4-digit OTP modal | `users/`: `User` entity, account and role management; `auth/`: login and JWT; `guardrails/`: `AcademicSchedule`, `OTPLog`, time-lock guard and OTP engine |
 | **Team 5** | **Shared Platform & Services** | `shared/`: Base UI system (`Button`, `Card`, `Badge`, `Navbar`), `apiClient` | `shared/`: TypeORM database configuration, health checks, Docker Compose, CI/CD |
 
 ---
@@ -116,7 +118,14 @@ Key environment variables:
 - `DATABASE_USER=postgres` — PostgreSQL Username
 - `DATABASE_PASSWORD=postgres` — PostgreSQL Password
 - `DATABASE_NAME=msu_pakawit_db` — Database Name
+- `JWT_SECRET` — development signing key (at least 32 characters; use a strong secret outside local development)
+- `JWT_ACCESS_TOKEN_TTL_SECONDS=3600` — access-token lifetime
+- `BOOTSTRAP_ADMIN_SECRET` — one-time local admin bootstrap secret; unset it after creating the first admin
 - `VITE_API_BASE_URL=http://localhost:5000/api` — Frontend API Endpoint
+
+Usernames are case-insensitive and normalized to lowercase. They must be 3-32 characters and contain only letters, digits, periods, underscores, or hyphens; this format does not depend on a user's role or account type. Passwords are stored as Argon2id hashes.
+
+On an empty Sprint 0 database, create the first administrator once with `POST /api/users/bootstrap-admin`, supplying the configured `BOOTSTRAP_ADMIN_SECRET` in the `x-bootstrap-secret` header. The endpoint is unavailable after any user exists. Remove the bootstrap secret from the environment after use. Administrators can then provision users through `POST /api/users`; protected routes use bearer access tokens issued by `POST /api/auth/login`.
 
 ### 4.4 Running Development Servers
 

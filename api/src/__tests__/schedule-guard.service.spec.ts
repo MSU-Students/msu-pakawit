@@ -1,31 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { ScheduleGuardService } from '../modules/guardrails/schedule-guard.service';
-import { AcademicSchedule } from '../modules/guardrails/entities/academic-schedule.entity';
-import { User, UserRole } from '../modules/guardrails/entities/user.entity';
+import { User, UserRole } from '../modules/users/entities/user.entity';
+import { UserService } from '../modules/users/user.service';
 
 describe('ScheduleGuardService (Academic Time-Lock System)', () => {
   let service: ScheduleGuardService;
-  let mockUserRepo: any;
-  let mockScheduleRepo: any;
+  let mockUserService: { findByMsuIdWithSchedules: jest.Mock };
 
   beforeEach(async () => {
-    mockUserRepo = {
-      findOne: jest.fn(),
+    mockUserService = {
+      findByMsuIdWithSchedules: jest.fn(),
     };
-    mockScheduleRepo = {};
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ScheduleGuardService,
-        {
-          provide: getRepositoryToken(User),
-          useValue: mockUserRepo,
-        },
-        {
-          provide: getRepositoryToken(AcademicSchedule),
-          useValue: mockScheduleRepo,
-        },
+        { provide: UserService, useValue: mockUserService },
       ],
     }).compile();
 
@@ -57,7 +47,7 @@ describe('ScheduleGuardService (Academic Time-Lock System)', () => {
       ],
     };
 
-    mockUserRepo.findOne.mockResolvedValue(mockUser);
+    mockUserService.findByMsuIdWithSchedules.mockResolvedValue(mockUser);
 
     // Monday at 09:00 AM (in class)
     const testMondayTime = new Date('2026-09-28T09:00:00');
@@ -89,7 +79,7 @@ describe('ScheduleGuardService (Academic Time-Lock System)', () => {
       ],
     };
 
-    mockUserRepo.findOne.mockResolvedValue(mockUser);
+    mockUserService.findByMsuIdWithSchedules.mockResolvedValue(mockUser);
 
     // Monday at 11:00 AM (after class)
     const testMondayAfternoon = new Date('2026-09-28T11:00:00');

@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { AcademicSchedule } from './academic-schedule.entity';
+import { AcademicSchedule } from '../../guardrails/entities/academic-schedule.entity';
 
 export enum UserRole {
   STUDENT = 'STUDENT',
@@ -21,13 +21,19 @@ export class User {
   id: string;
 
   @Column({ unique: true })
-  msuIdNumber: string; // e.g., '2023-01429'
+  msuIdNumber: string;
+
+  @Column({ unique: true, length: 32 })
+  username: string;
+
+  @Column({ select: false })
+  passwordHash: string;
 
   @Column()
   fullName: string;
 
   @Column({ unique: true })
-  email: string; // e.g. 'amina.radiamoda@msumain.edu.ph'
+  email: string;
 
   @Column({
     type: 'enum',
