@@ -15,12 +15,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
   pendingSyncCount = 0,
 }) => {
-  const navItems = [
-    { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
-    { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
-    { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
-    { id: 'offline', label: 'Offline Sync', icon: Clock },
-  ];
+const navItems = [
+  { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
+  { id: 'storebuilder', label: 'Store Builder', icon: ShoppingBag },
+  { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
+  { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
+  { id: 'offline', label: 'Offline Sync', icon: Clock },
+];
+
+
 
   return (
     <header className="bg-msu-maroon text-white sticky top-0 z-40 shadow-md">

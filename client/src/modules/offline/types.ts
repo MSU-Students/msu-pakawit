@@ -19,9 +19,26 @@ export interface LocalStore {
   hostStudentId: string;
   name: string;
   description?: string;
-  vendorOrigin: string; // e.g., 'Commercial Center', 'MSU Main Gate', 'Cafeteria'
-  defaultConvenienceFee: number; // in PHP
+
+  // Store location and pricing
+  vendorOrigin: string;
+  defaultConvenienceFee: number;
   markupPercentage: number;
+
+  // Store branding
+  logoUrl?: string;
+  brandColor?: string;
+
+  // Operating hours
+  openingTime?: string;
+  closingTime?: string;
+
+  // Storefront settings
+  storefrontSlug?: string;
+  isOpen?: boolean;
+  isPublished?: boolean;
+
+  // Offline synchronization
   isActive: boolean;
   isSynced: boolean;
   updatedAt: number;
