@@ -60,6 +60,7 @@ export const StoreBuilder: React.FC<StoreBuilderProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   useEffect(() => {
     if (!initialStore) return;
 
@@ -576,21 +577,178 @@ export const StoreBuilder: React.FC<StoreBuilderProps> = ({
                 </div>
               </div>
 
-              <div
-                className="mt-5 rounded-lg p-3 text-center text-sm font-semibold text-white"
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(true)}
+                className="mt-5 w-full rounded-lg p-3 text-center text-sm font-semibold text-white transition hover:opacity-90"
                 style={{ backgroundColor: brandColor }}
               >
                 Store Preview
-              </div>
+              </button>
 
               <p className="mt-3 text-center text-xs text-gray-400">
-                Preview only. Saving or publishing requires a connected save
-                handler.
+                Preview your storefront before publishing.
               </p>
             </div>
           </div>
         </aside>
-      </div>
+            </div>
+
+      {/* Full Storefront Preview Modal */}
+      {isPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setIsPreviewOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="store-preview-title"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              className="flex items-center justify-between border-b p-5"
+              style={{ borderTop: `6px solid ${brandColor}` }}
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Storefront Preview
+                </p>
+
+                <h2
+                  id="store-preview-title"
+                  className="mt-1 text-xl font-bold text-gray-900"
+                >
+                  Preview Your Store
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                aria-label="Close storefront preview"
+                className="rounded-lg px-3 py-2 text-xl text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Storefront Content */}
+            <div className="p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={`${storeName || "Store"} logo`}
+                    className="h-20 w-20 rounded-xl border border-gray-200 object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl text-3xl font-bold text-white"
+                    style={{ backgroundColor: brandColor }}
+                  >
+                    {storeName.trim().charAt(0).toUpperCase() || "S"}
+                  </div>
+                )}
+
+                <div className="min-w-0">
+                  <h3 className="break-words text-2xl font-bold text-gray-900">
+                    {storeName.trim() || "Your Store Name"}
+                  </h3>
+
+                  <p className="mt-1 text-gray-500">{vendorOrigin}</p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span
+                      className={
+                        isOpen
+                          ? "rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700"
+                          : "rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600"
+                      }
+                    >
+                      {isOpen ? "Currently Open" : "Currently Closed"}
+                    </span>
+
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                      {openingTime} – {closingTime}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="mt-6 rounded-xl p-5"
+                style={{ backgroundColor: `${brandColor}12` }}
+              >
+                <h4 className="text-sm font-semibold text-gray-700">
+                  About Our Store
+                </h4>
+
+                <p className="mt-2 whitespace-pre-wrap break-words text-gray-600">
+                  {description ||
+                    "Your store description will appear here."}
+                </p>
+              </div>
+
+              <div className="mt-5 rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Storefront URL</p>
+
+                <p className="mt-1 break-all font-medium text-blue-700">
+                  {storefrontSlug
+                    ? `/store/${storefrontSlug}`
+                    : "Your URL will appear here"}
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-sm text-gray-500">Convenience Fee</p>
+
+                  <p className="mt-1 text-lg font-semibold text-gray-900">
+                    ₱{Number(convenienceFee || 0).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <p className="text-sm text-gray-500">Markup</p>
+
+                  <p className="mt-1 text-lg font-semibold text-gray-900">
+                    {Number(markupPercentage || 0)}%
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="mt-6 rounded-xl p-4 text-center font-semibold text-white"
+                style={{ backgroundColor: brandColor }}
+              >
+                {storeName.trim() || "Your Store"}
+              </div>
+
+              <p className="mt-3 text-center text-xs text-gray-400">
+                This is a preview. Your changes will not be published until
+                you use the Save & Publish action.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end border-t border-gray-200 p-4">
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Back to Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
