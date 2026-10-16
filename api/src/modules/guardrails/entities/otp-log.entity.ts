@@ -20,8 +20,8 @@ export class OTPLog {
   @Column()
   errandId: string;
 
-  @Column({ length: 4 })
-  otpCode: string;
+  @Column({ length: 64, select: false })
+  otpHash: string;
 
   @Column({
     type: 'enum',
@@ -33,8 +33,14 @@ export class OTPLog {
   @Column({ type: 'int', default: 0 })
   attempts: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp with time zone' })
   expiresAt: Date;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  verifiedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  verifiedByUserId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

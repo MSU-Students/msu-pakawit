@@ -54,6 +54,31 @@ describe('UserService', () => {
     expect(created.role).toBe(UserRole.STUDENT);
   });
 
+  it('creates verified registrations with the selected public role', async () => {
+    const verifiedRepository = {
+      create: jest.fn((user) => user),
+      save: jest.fn(async (user) => user),
+    };
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(verifiedRepository),
+    };
+    const created = await service.createVerifiedUser(manager as any, {
+      msuIdNumber: '2026-01429',
+      username: 'amina.radiamoda',
+      fullName: 'Amina Radiamoda',
+      email: 'amina@msumain.edu.ph',
+      passwordHash: 'argon2-hash',
+      role: UserRole.COURIER,
+    });
+
+    expect(created).toMatchObject({ role: UserRole.COURIER, isActive: true });
+    expect(verifiedRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+      passwordHash: 'argon2-hash',
+      role: UserRole.COURIER,
+      isActive: true,
+    }));
+  });
+
   it('creates the first administrator only with the bootstrap secret and an empty table', async () => {
     repository.count = jest.fn().mockResolvedValue(0);
     const admin = await service.createFirstAdmin({

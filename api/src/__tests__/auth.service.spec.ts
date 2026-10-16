@@ -29,6 +29,9 @@ describe('AuthService', () => {
       userService as unknown as UserService,
       jwtService as unknown as JwtService,
       { get: jest.fn().mockReturnValue(3600) } as unknown as ConfigService,
+      { findOne: jest.fn(), create: jest.fn(), save: jest.fn(), delete: jest.fn() } as any,
+      { transaction: jest.fn() } as any,
+      { sendRegistrationVerification: jest.fn() } as any,
     );
   });
 

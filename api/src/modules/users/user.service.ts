@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { timingSafeEqual } from 'crypto';
 import * as argon2 from 'argon2';
 import { User, UserRole } from './entities/user.entity';
@@ -44,6 +44,45 @@ export class UserService {
 
   findAll(): Promise<User[]> {
     return this.userRepo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async ensureRegistrationIdentifiersAvailable(identifiers: {
+    username: string;
+    email: string;
+    msuIdNumber: string;
+  }): Promise<void> {
+    const existing = await this.userRepo.findOne({
+      where: [
+        { username: identifiers.username },
+        { email: identifiers.email },
+        { msuIdNumber: identifiers.msuIdNumber },
+      ],
+    });
+    if (existing) throw new ConflictException('An account with one of these identifiers already exists');
+  }
+
+  async createVerifiedUser(
+    manager: EntityManager,
+    registration: {
+      username: string;
+      email: string;
+      msuIdNumber: string;
+      fullName: string;
+      passwordHash: string;
+      role: UserRole.STUDENT | UserRole.EMPLOYEE | UserRole.COURIER;
+    },
+  ): Promise<User> {
+    const repository = manager.getRepository(User);
+    const user = repository.create({
+      msuIdNumber: registration.msuIdNumber,
+      username: registration.username,
+      fullName: registration.fullName,
+      email: registration.email,
+      passwordHash: registration.passwordHash,
+      role: registration.role,
+      isActive: true,
+    });
+    return this.saveWithConflictHandling(repository, user);
   }
 
   async createUser(dto: CreateUserDto): Promise<User> {

@@ -5,22 +5,22 @@ import { Button } from '../shared/Button';
 
 export interface OTPVerificationModalProps {
   errandId: string;
-  expectedOTP?: string;
   onVerify: (otp: string) => boolean | Promise<boolean>;
   onClose: () => void;
 }
 
 export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
   errandId,
-  expectedOTP = '7429',
   onVerify,
   onClose,
 }) => {
   const [digits, setDigits] = useState(['', '', '', '']);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleDigitChange = (index: number, val: string) => {
+    val = val.replace(/\D/g, '');
     if (val.length > 1) val = val.slice(-1);
     const newDigits = [...digits];
     newDigits[index] = val;
@@ -41,14 +41,25 @@ export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
       return;
     }
 
-    const isValid = await onVerify(enteredOTP);
-    if (isValid) {
-      setSuccess(true);
-      setTimeout(() => {
-        onClose();
-      }, 1200);
-    } else {
-      setError('Invalid OTP code. Please verify with the student buyer at the drop zone.');
+    setIsVerifying(true);
+    try {
+      const isValid = await onVerify(enteredOTP);
+      if (isValid) {
+        setSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      } else {
+        setError('The code could not be verified. Check it with the buyer or request a new code.');
+      }
+    } catch (verificationError) {
+      setError(
+        verificationError instanceof Error
+          ? verificationError.message
+          : 'Unable to verify the handoff code. Please try again.',
+      );
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -64,10 +75,7 @@ export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
             Drop-Zone OTP Handoff
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            Ask the buyer for their 4-digit verification code to complete delivery for Errand #{errandId}
-          </p>
-          <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-            (Demo simulation code: {expectedOTP})
+            Enter the 4-digit code sent to the buyer by email to complete Errand #{errandId}.
           </p>
         </div>
 
@@ -78,6 +86,8 @@ export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
               key={idx}
               id={`otp-input-${idx}`}
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={1}
               value={digit}
               onChange={(e) => handleDigitChange(idx, e.target.value)}
@@ -96,7 +106,7 @@ export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
         {success && (
           <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
             <ShieldCheck className="w-4 h-4 shrink-0" />
-            <span>Delivery Verified! Payout released to runner wallet.</span>
+            <span>Delivery verified. Handoff recorded.</span>
           </div>
         )}
 
@@ -108,9 +118,9 @@ export const OTPVerificationModal: React.FC<OTPVerificationModalProps> = ({
             variant="primary"
             className="w-1/2"
             onClick={handleVerify}
-            disabled={success}
+            disabled={success || isVerifying}
           >
-            Confirm Handoff
+            {isVerifying ? 'Verifying…' : 'Confirm Handoff'}
           </Button>
         </div>
       </Card>

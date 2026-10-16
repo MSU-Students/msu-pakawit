@@ -50,7 +50,6 @@ export interface LocalErrandOrder {
   totalAmount: number;
   dropZone: string; // e.g. 'Science Complex Hub', 'Kasadpan Hall', 'CNSM Lobby'
   status: 'PENDING' | 'ACCEPTED' | 'PURCHASED' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED';
-  otpCode?: string;
   isSynced: boolean;
   createdAt: number;
   updatedAt: number;

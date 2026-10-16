@@ -1,12 +1,14 @@
 import React from 'react';
 import { ShoppingBag, Navigation, Clock, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
 import { Badge } from './Badge';
+import { USER_ROLE_LABELS, type UserRole } from '../auth/user-role';
 
 export interface NavbarProps {
   isOnline: boolean;
   activeTab: string;
   onTabChange: (tab: string) => void;
   pendingSyncCount?: number;
+  role: UserRole;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -14,10 +16,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   pendingSyncCount = 0,
+  role,
 }) => {
   const navItems = [
     { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
-    { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
+    ...(role === 'COURIER' ? [{ id: 'dispatch', label: 'Errand Dispatch', icon: Navigation }] : []),
     { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
     { id: 'offline', label: 'Offline Sync', icon: Clock },
   ];
@@ -28,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <div className="flex items-center gap-3">
+            <Badge variant="info" size="sm">{USER_ROLE_LABELS[role]}</Badge>
             <div className="w-10 h-10 rounded-lg bg-msu-gold flex items-center justify-center font-bold text-slate-900 text-lg shadow">
               MP
             </div>
@@ -66,6 +70,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Online/Offline Status Indicator */}
           <div className="flex items-center gap-3">
+            <a
+              href="/?register=1"
+              className="rounded-md px-2 py-1 text-sm font-medium text-white/90 hover:bg-white/10 hover:text-white"
+            >
+              Register
+            </a>
             {isOnline ? (
               <Badge variant="success" size="sm" className="flex items-center gap-1 bg-emerald-950/80 text-emerald-300 border-emerald-500/40">
                 <Wifi className="w-3 h-3" />

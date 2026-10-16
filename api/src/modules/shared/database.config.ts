@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { join } from 'path';
 
 export const getDatabaseConfig = (): TypeOrmModuleOptions => {
   return {
@@ -10,6 +11,8 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
     database: process.env.DATABASE_NAME || 'msu_pakawit_db',
     autoLoadEntities: true,
     synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
+    migrations: [join(__dirname, '../../migrations/*{.js,.ts}')],
+    migrationsRun: process.env.NODE_ENV === 'production',
     logging: process.env.NODE_ENV === 'development',
   };
 };

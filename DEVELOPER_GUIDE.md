@@ -121,11 +121,22 @@ Key environment variables:
 - `JWT_SECRET` — development signing key (at least 32 characters; use a strong secret outside local development)
 - `JWT_ACCESS_TOKEN_TTL_SECONDS=3600` — access-token lifetime
 - `BOOTSTRAP_ADMIN_SECRET` — one-time local admin bootstrap secret; unset it after creating the first admin
+- `REGISTRATION_VERIFICATION_TTL_MINUTES=30` — lifetime of a pending registration link (1–1440 minutes)
+- `CLIENT_URL=http://localhost:3000` — frontend origin used to build email verification links
+- `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_SECURE=false`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` — SMTP delivery settings; credentials are optional only when the SMTP server allows unauthenticated sending
+- `OTP_HASH_SECRET` — optional dedicated server-side key for delivery OTP hashes; defaults to `JWT_SECRET`
 - `VITE_API_BASE_URL=http://localhost:5000/api` — Frontend API Endpoint
+- `ACADEMIC_TIMEZONE=Asia/Manila` — timezone used to compare current time with registered academic schedules
 
 Usernames are case-insensitive and normalized to lowercase. They must be 3-32 characters and contain only letters, digits, periods, underscores, or hyphens; this format does not depend on a user's role or account type. Passwords are stored as Argon2id hashes.
 
 On an empty Sprint 0 database, create the first administrator once with `POST /api/users/bootstrap-admin`, supplying the configured `BOOTSTRAP_ADMIN_SECRET` in the `x-bootstrap-secret` header. The endpoint is unavailable after any user exists. Remove the bootstrap secret from the environment after use. Administrators can then provision users through `POST /api/users`; protected routes use bearer access tokens issued by `POST /api/auth/login`.
+
+Public registration is available from the client’s **Register** link. It collects full name, MSU ID number, username, email, password, and a `STUDENT`, `EMPLOYEE`, or `COURIER` role. `POST /api/auth/register` stores a time-limited pending registration (password and verification token are hashed) and sends a link using SMTP. The account is created with the selected role only after the user confirms the link through `POST /api/auth/verify-email`; public registration cannot create administrators. The client displays the verified role and shows Dispatch navigation only for Couriers. That client-side role display is presentation only; Dispatch API routes require bearer authentication and enforce roles from the current database profile.
+
+Academic time-lock checks use the `ACADEMIC_TIMEZONE` (default `Asia/Manila`) and apply to Students and Couriers, not Employees or Administrators. The API checks access to the errand feed, placing/claiming errands, and courier status changes; an active class/exam restriction returns HTTP 403 with an explanatory message and schedule details. The Dispatch UI shows a matching notice and disables affected actions. Administrators may grant a reason-required temporary override for 1–120 minutes with `POST /api/guardrails/schedule-lock/override`; all schedule checks, allow/deny decisions, and override grants are stored in `schedule_lock_decisions`. Admins can view the last 100 decisions for a user at `GET /api/guardrails/schedule-lock/:userId/audit`. Production startup runs migrations that create and extend the registration and schedule-audit tables; development uses the configured TypeORM synchronization behavior.
+
+Students and Employees can create errands, while Couriers can view and act on the feed; courier status changes are limited to the assigned courier. Administrator role changes therefore affect API permissions immediately. Configure the SMTP variables above before using registration and delivery OTP email; a failed email send prevents the action from advancing.
 
 ### 4.4 Running Development Servers
 
@@ -197,10 +208,12 @@ To protect academic performance, MSU Pakawit enforces strict guardrails:
 ## 7. Campus Drop-Zone 4-Digit OTP Protocol
 
 To guarantee physical handoff security without requiring payment gateways:
-1. When an order is placed, a unique **4-digit OTP** is generated for the buyer.
-2. The student runner picks up items from the vendor and brings them to designated campus drop hubs (e.g. *Science Complex Hub*, *Kasadpan Hall Runner Point*).
-3. The runner enters the 4-digit code provided by the buyer into the OTP Verification Modal.
-4. The system validates the OTP against the backend/local store, records the successful handoff in `OTPLog`, and marks the errand as `COMPLETED`.
+1. When the assigned Courier changes an errand to `DELIVERING`, the API generates a random 4-digit code and emails it to the buyer. The code expires after 30 minutes; `POST /api/errands/:id/handoff-otp` can resend it while delivery is in progress.
+2. The Courier enters the buyer's code at the designated campus drop hub (e.g. *Science Complex Hub*, *Kasadpan Hall Runner Point*).
+3. `POST /api/errands/:id/complete` checks the code, its expiry, the five-attempt limit, delivery status, and assigned Courier. Completion and the verified OTP proof are saved in one database transaction; direct status updates cannot mark an errand `COMPLETED`.
+4. OTPs are HMAC-hashed at rest using `OTP_HASH_SECRET` (or `JWT_SECRET` when no dedicated key is set). Every verification attempt is stored in `otp_attempt_logs` with its timestamp, courier, attempt number, and result. The completed errand links to its verified `OTPLog` through `deliveryOtpLogId` and records `deliveryCompletedAt`.
+
+Delivery-code email uses the configured SMTP settings documented above. The OTP modal submits to the authenticated completion API and requires a bearer token stored under `msu-pakawit-access-token`; the existing sample Dispatch feed and order creation remain prototype data. The Dispatch API is authoritative for email delivery, verification, and completion proof.
 
 ---
 

@@ -1,74 +1,158 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { createHmac, randomInt, timingSafeEqual } from 'crypto';
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { EmailService } from '../auth/email.service';
+import { OTPAttemptLog, OTPAttemptResult } from './entities/otp-attempt-log.entity';
 import { OTPLog, OTPStatus } from './entities/otp-log.entity';
+
+const OTP_TTL_MINUTES = 30;
+const MAX_ATTEMPTS = 5;
 
 @Injectable()
 export class OtpService {
   constructor(
     @InjectRepository(OTPLog)
     private readonly otpRepo: Repository<OTPLog>,
+    @InjectRepository(OTPAttemptLog)
+    private readonly attemptRepo: Repository<OTPAttemptLog>,
+    private readonly emailService: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
-  /**
-   * Generates a secure 4-digit numeric OTP with 30-minute validity.
-   */
-  async generateOtp(errandId: string): Promise<string> {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+  async createAndDeliverOtp(
+    errandId: string,
+    recipient: { email: string; fullName: string },
+  ): Promise<{ expiresAt: Date }> {
+    const now = new Date();
+    await this.otpRepo.update(
+      { errandId, status: OTPStatus.GENERATED },
+      { status: OTPStatus.EXPIRED, expiresAt: now },
+    );
 
-    const otpLog = this.otpRepo.create({
+    const code = randomInt(1000, 10000).toString();
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MINUTES * 60 * 1000);
+    const otp = await this.otpRepo.save(this.otpRepo.create({
       errandId,
-      otpCode: code,
+      otpHash: this.hashOtp(errandId, code),
       status: OTPStatus.GENERATED,
       attempts: 0,
       expiresAt,
-    });
+      verifiedAt: null,
+      verifiedByUserId: null,
+    }));
 
-    await this.otpRepo.save(otpLog);
-    return code;
+    try {
+      await this.emailService.sendDeliveryOtp(recipient.email, recipient.fullName, code, expiresAt);
+    } catch (error) {
+      otp.status = OTPStatus.FAILED;
+      await this.otpRepo.save(otp);
+      throw error;
+    }
+
+    return { expiresAt };
   }
 
-  /**
-   * Verifies the 4-digit OTP provided at campus drop zone
-   */
-  async verifyOtp(errandId: string, otpCode: string): Promise<{ success: boolean; message: string }> {
-    const log = await this.otpRepo.findOne({
-      where: { errandId, status: OTPStatus.GENERATED },
-      order: { createdAt: 'DESC' },
-    });
+  async verifyOtp(
+    errandId: string,
+    otpCode: string,
+    courierUserId: string,
+    manager?: EntityManager,
+  ): Promise<{ success: boolean; message: string; otpLogId?: string }> {
+    const otpRepository = manager?.getRepository(OTPLog) ?? this.otpRepo;
+    const attemptRepository = manager?.getRepository(OTPAttemptLog) ?? this.attemptRepo;
+    const query = otpRepository
+      .createQueryBuilder('otp')
+      .addSelect('otp.otpHash')
+      .where('otp.errandId = :errandId', { errandId })
+      .orderBy('otp.createdAt', 'DESC');
+    if (manager) query.setLock('pessimistic_write');
+    const otp = await query.getOne();
 
-    if (!log) {
-      throw new BadRequestException('No active OTP found for this errand or already verified.');
+    if (!otp) {
+      throw new BadRequestException('No active handoff code exists for this delivery.');
     }
 
-    if (new Date() > log.expiresAt) {
-      log.status = OTPStatus.EXPIRED;
-      await this.otpRepo.save(log);
-      throw new BadRequestException('OTP code has expired. Please request a new verification code.');
+    const now = new Date();
+    if (otp.status === OTPStatus.FAILED && otp.attempts >= MAX_ATTEMPTS) {
+      otp.attempts += 1;
+      await otpRepository.save(otp);
+      await this.recordAttempt(attemptRepository, otp, courierUserId, OTPAttemptResult.LOCKED);
+      return { success: false, message: 'Too many incorrect attempts. Request a new delivery code.' };
     }
 
-    if (log.attempts >= 5) {
-      log.status = OTPStatus.FAILED;
-      await this.otpRepo.save(log);
-      throw new BadRequestException('Too many incorrect attempts. Delivery locked for security review.');
+    if (otp.status === OTPStatus.EXPIRED) {
+      otp.attempts += 1;
+      await otpRepository.save(otp);
+      await this.recordAttempt(attemptRepository, otp, courierUserId, OTPAttemptResult.EXPIRED);
+      return { success: false, message: 'The delivery code has expired. Request a new code.' };
     }
 
-    if (log.otpCode !== otpCode) {
-      log.attempts += 1;
-      await this.otpRepo.save(log);
+    if (otp.status !== OTPStatus.GENERATED) {
+      throw new BadRequestException('No active handoff code exists for this delivery.');
+    }
+
+    if (otp.expiresAt.getTime() <= now.getTime()) {
+      otp.status = OTPStatus.EXPIRED;
+      otp.attempts += 1;
+      await otpRepository.save(otp);
+      await this.recordAttempt(attemptRepository, otp, courierUserId, OTPAttemptResult.EXPIRED);
+      return { success: false, message: 'The delivery code has expired. Request a new code.' };
+    }
+
+    const expectedHash = Buffer.from(otp.otpHash, 'hex');
+    const providedHash = Buffer.from(this.hashOtp(errandId, otpCode), 'hex');
+    const matches = expectedHash.length === providedHash.length && timingSafeEqual(expectedHash, providedHash);
+
+    if (!matches) {
+      otp.attempts += 1;
+      if (otp.attempts >= MAX_ATTEMPTS) otp.status = OTPStatus.FAILED;
+      await otpRepository.save(otp);
+      await this.recordAttempt(attemptRepository, otp, courierUserId, OTPAttemptResult.INVALID);
       return {
         success: false,
-        message: `Invalid OTP code. Attempt ${log.attempts} of 5.`,
+        message: otp.attempts >= MAX_ATTEMPTS
+          ? 'Too many incorrect attempts. Request a new delivery code.'
+          : `Invalid delivery code. ${MAX_ATTEMPTS - otp.attempts} attempt(s) remaining.`,
       };
     }
 
-    log.status = OTPStatus.VERIFIED;
-    await this.otpRepo.save(log);
+    otp.status = OTPStatus.VERIFIED;
+    otp.verifiedAt = now;
+    otp.verifiedByUserId = courierUserId;
+    await otpRepository.save(otp);
+    await this.recordAttempt(attemptRepository, otp, courierUserId, OTPAttemptResult.VERIFIED);
 
     return {
       success: true,
-      message: 'OTP verified successfully. Errand handoff confirmed at drop zone.',
+      message: 'Delivery code verified. Handoff confirmed.',
+      otpLogId: otp.id,
     };
+  }
+
+  private async recordAttempt(
+    repository: Repository<OTPAttemptLog>,
+    otp: OTPLog,
+    courierUserId: string,
+    result: OTPAttemptResult,
+  ): Promise<void> {
+    await repository.save(repository.create({
+      otpLogId: otp.id,
+      errandId: otp.errandId,
+      attemptedByUserId: courierUserId,
+      attemptNumber: otp.attempts + (result === OTPAttemptResult.VERIFIED ? 1 : 0),
+      result,
+    }));
+  }
+
+  private hashOtp(errandId: string, code: string): string {
+    const secret = this.config.get<string>('OTP_HASH_SECRET') || this.config.get<string>('JWT_SECRET');
+    if (!secret) throw new ServiceUnavailableException('OTP hashing is not configured');
+    return createHmac('sha256', secret).update(`${errandId}:${code}`).digest('hex');
   }
 }
