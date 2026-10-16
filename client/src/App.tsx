@@ -12,6 +12,7 @@ import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -268,6 +269,13 @@ export const App: React.FC = () => {
           >
             Sync Outbox
           </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'profile' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
+          </Button>
         </div>
 
         {activeTab === 'storefront' && (
@@ -347,6 +355,8 @@ export const App: React.FC = () => {
             </Card>
           </div>
         )}
+
+        {activeTab === 'profile' && <ProfileSettings />}
       </main>
 
       {/* OTP Modal */}
