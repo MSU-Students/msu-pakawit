@@ -83,8 +83,12 @@ export class UserController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Assign a user role (administrator only)' })
-  async assignRole(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AssignUserRoleDto) {
-    return toUserResponse(await this.userService.assignRole(id, dto.role));
+  async assignRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignUserRoleDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return toUserResponse(await this.userService.assignRole(request.user.sub, id, dto.role));
   }
 
   @Patch(':id/status')

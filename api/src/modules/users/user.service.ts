@@ -10,10 +10,12 @@ import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { timingSafeEqual } from 'crypto';
 import * as argon2 from 'argon2';
 import { User, UserRole } from './entities/user.entity';
+import { UserRoleAudit } from './entities/user-role-audit.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 
 export const normalizeUsername = (username: string): string => username.trim().toLowerCase();
+const ADMIN_ACCOUNT_MUTATION_LOCK_ID = 1146110032;
 
 @Injectable()
 export class UserService {
@@ -58,7 +60,7 @@ export class UserService {
 
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
     return this.dataSource.transaction(async (manager) => {
-      await manager.query('SELECT pg_advisory_xact_lock($1)', [1146110032]);
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [ADMIN_ACCOUNT_MUTATION_LOCK_ID]);
       const repository = manager.getRepository(User);
       if ((await repository.count()) > 0) throw new ConflictException('Admin bootstrap is only available before user creation');
 
@@ -80,30 +82,56 @@ export class UserService {
     return this.saveWithConflictHandling(this.userRepo, user);
   }
 
-  async assignRole(id: string, role: UserRole): Promise<User> {
-    const user = await this.userRepo.findOneBy({ id });
-    if (!user) throw new NotFoundException('User not found');
-    if (user.role === UserRole.ADMIN && role !== UserRole.ADMIN && (await this.userRepo.countBy({
-      role: UserRole.ADMIN,
-      isActive: true,
-    })) <= 1) {
-      throw new ConflictException('The last active administrator cannot be demoted');
-    }
-    user.role = role;
-    return this.userRepo.save(user);
+  async assignRole(actorUserId: string, targetUserId: string, role: UserRole): Promise<User> {
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [ADMIN_ACCOUNT_MUTATION_LOCK_ID]);
+      const repository = manager.getRepository(User);
+      const user = await repository.findOne({
+        where: { id: targetUserId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new NotFoundException('User not found');
+      if (user.role === role) return user;
+
+      if (user.role === UserRole.ADMIN && role !== UserRole.ADMIN && (await repository.countBy({
+        role: UserRole.ADMIN,
+        isActive: true,
+      })) <= 1) {
+        throw new ConflictException('The last active administrator cannot be demoted');
+      }
+
+      const previousRole = user.role;
+      user.role = role;
+      const updatedUser = await repository.save(user);
+      const auditRepository = manager.getRepository(UserRoleAudit);
+      await auditRepository.save(auditRepository.create({
+        actorUserId,
+        targetUserId,
+        oldRole: previousRole,
+        newRole: role,
+      }));
+      return updatedUser;
+    });
   }
 
   async setActiveStatus(id: string, isActive: boolean): Promise<User> {
-    const user = await this.userRepo.findOneBy({ id });
-    if (!user) throw new NotFoundException('User not found');
-    if (user.role === UserRole.ADMIN && user.isActive && !isActive && (await this.userRepo.countBy({
-      role: UserRole.ADMIN,
-      isActive: true,
-    })) <= 1) {
-      throw new ConflictException('The last active administrator cannot be deactivated');
-    }
-    user.isActive = isActive;
-    return this.userRepo.save(user);
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [ADMIN_ACCOUNT_MUTATION_LOCK_ID]);
+      const repository = manager.getRepository(User);
+      const user = await repository.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new NotFoundException('User not found');
+      if (user.role === UserRole.ADMIN && user.isActive && !isActive && (await repository.countBy({
+        role: UserRole.ADMIN,
+        isActive: true,
+      })) <= 1) {
+        throw new ConflictException('The last active administrator cannot be deactivated');
+      }
+      user.isActive = isActive;
+      return repository.save(user);
+    });
   }
 
   private async saveNewUser(dto: CreateUserDto, role: UserRole): Promise<User> {
