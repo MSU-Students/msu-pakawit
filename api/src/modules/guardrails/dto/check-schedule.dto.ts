@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CheckScheduleDto {
@@ -8,7 +8,7 @@ export class CheckScheduleDto {
   msuIdNumber: string;
 
   @ApiPropertyOptional({ example: '2026-09-28T09:15:00Z', description: 'ISO timestamp to evaluate against schedule' })
-  @IsString()
+  @IsDateString()
   @IsOptional()
   timestamp?: string;
 }

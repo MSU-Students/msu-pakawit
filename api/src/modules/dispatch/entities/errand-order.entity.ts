@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
+  ManyToOne,
 } from 'typeorm';
+import { OTPLog } from '../../guardrails/entities/otp-log.entity';
 
 export enum ErrandOrderStatus {
   PENDING = 'PENDING',
@@ -50,6 +53,16 @@ export class ErrandOrder {
     default: ErrandOrderStatus.PENDING,
   })
   status: ErrandOrderStatus;
+
+  @Column({ type: 'uuid', nullable: true })
+  deliveryOtpLogId: string | null;
+
+  @ManyToOne(() => OTPLog, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'deliveryOtpLogId' })
+  deliveryOtpLog: OTPLog | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  deliveryCompletedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

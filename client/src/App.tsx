@@ -15,6 +15,7 @@ import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidato
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
+import { ACCESS_TOKEN_KEY, getStoredUserRole } from './modules/auth/user-role';
 
 // Mock seed data for Sprint 0 inception showcase
 const mockStore: VirtualStore = {
@@ -100,6 +101,7 @@ const mockSchedules: ScheduleBlock[] = [
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
+  const userRole = getStoredUserRole();
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
@@ -137,6 +139,8 @@ export const App: React.FC = () => {
 
   // Check schedule lock
   const isLocked = isCourierLockedBySchedule(mockSchedules).isLocked;
+  const isEligibleForTimeLock = userRole === 'STUDENT' || userRole === 'COURIER';
+  const isTimeLocked = isEligibleForTimeLock && isLocked;
 
   useEffect(() => {
     syncEngine.initAutoSync();
@@ -169,7 +173,6 @@ export const App: React.FC = () => {
       totalAmount: orderData.totalAmount,
       dropZone: orderData.dropZone,
       status: 'PENDING',
-      otpCode: '7429',
       isSynced: !isSimulatedOffline,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -201,16 +204,29 @@ export const App: React.FC = () => {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
   };
 
-  const handleVerifyOtp = (otp: string) => {
-    if (otp === '7429') {
-      if (activeOtpModalErrandId) {
-        setTasks((prev) =>
-          prev.map((t) => (t.id === activeOtpModalErrandId ? { ...t, status: 'COMPLETED' } : t))
-        );
-      }
-      return true;
+  const handleVerifyOtp = async (otp: string) => {
+    if (!activeOtpModalErrandId) return false;
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!accessToken) throw new Error('Sign in is required to verify a delivery handoff.');
+
+    const response = await fetch(`/api/errands/${encodeURIComponent(activeOtpModalErrandId)}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ otpCode: otp }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(typeof result.message === 'string' ? result.message : 'Unable to verify the delivery code.');
     }
-    return false;
+    if (!result.success || result.errand?.status !== 'COMPLETED') return false;
+
+    setTasks((prev) =>
+      prev.map((task) => (task.id === activeOtpModalErrandId ? { ...task, status: 'COMPLETED' } : task))
+    );
+    return true;
   };
 
   const handleSyncNow = async () => {
@@ -226,7 +242,14 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         pendingSyncCount={pendingSyncQueue.length}
+        role={userRole}
       />
+
+      {isTimeLocked && activeTab !== 'dispatch' && (
+        <div role="alert" className="bg-amber-100 px-4 py-3 text-center text-sm font-medium text-amber-900">
+          Academic time-lock is active. Errand placement and courier activities are unavailable until your scheduled class ends.
+        </div>
+      )}
 
       <OfflineBanner
         isOnline={!isSimulatedOffline}
@@ -247,13 +270,15 @@ export const App: React.FC = () => {
           >
             Storefront
           </Button>
-          <Button
-            size="sm"
-            variant={activeTab === 'dispatch' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('dispatch')}
-          >
-            Dispatch
-          </Button>
+          {userRole === 'COURIER' && (
+            <Button
+              size="sm"
+              variant={activeTab === 'dispatch' ? 'primary' : 'ghost'}
+              onClick={() => setActiveTab('dispatch')}
+            >
+              Dispatch
+            </Button>
+          )}
           <Button
             size="sm"
             variant={activeTab === 'guardrails' ? 'primary' : 'ghost'}
@@ -278,10 +303,10 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'dispatch' && (
+        {userRole === 'COURIER' && activeTab === 'dispatch' && (
           <ErrandFeed
             tasks={tasks}
-            isLockedBySchedule={isLocked}
+            isLockedBySchedule={isTimeLocked}
             onAcceptTask={handleAcceptTask}
             onUpdateStatus={handleUpdateStatus}
           />
@@ -353,7 +378,6 @@ export const App: React.FC = () => {
       {activeOtpModalErrandId && (
         <OTPVerificationModal
           errandId={activeOtpModalErrandId}
-          expectedOTP="7429"
           onVerify={handleVerifyOtp}
           onClose={() => setActiveOtpModalErrandId(null)}
         />

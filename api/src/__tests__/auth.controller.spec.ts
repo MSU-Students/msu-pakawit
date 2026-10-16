@@ -8,6 +8,8 @@ describe('AuthController', () => {
   let app;
   const authService = {
     login: jest.fn().mockResolvedValue({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 3600 }),
+    register: jest.fn().mockResolvedValue({ message: 'Check your email.' }),
+    verifyEmail: jest.fn().mockResolvedValue({ message: 'Email verified.' }),
   };
 
   beforeEach(async () => {
@@ -32,6 +34,52 @@ describe('AuthController', () => {
       .send({ username: 'amina.radiamoda', password: 'password123' })
       .expect(201)
       .expect({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 3600 });
+  });
+
+  it('accepts registration with one of the public roles but rejects ADMIN', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'a-long-registration-password',
+        role: 'COURIER',
+      })
+      .expect(201)
+      .expect({ message: 'Check your email.' });
+
+    expect(authService.register).toHaveBeenCalledWith(expect.objectContaining({
+      username: 'amina.radiamoda',
+      email: 'amina@msumain.edu.ph',
+      role: 'COURIER',
+    }));
+
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'a-long-registration-password',
+        role: 'ADMIN',
+      })
+      .expect(400);
+  });
+
+  it('validates email verification tokens', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: 'one-time-token' })
+      .expect(201)
+      .expect({ message: 'Email verified.' });
+
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: '' })
+      .expect(400);
   });
 
   it('normalizes username case and surrounding whitespace before login', async () => {

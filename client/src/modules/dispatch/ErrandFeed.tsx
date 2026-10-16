@@ -32,8 +32,8 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
         </div>
 
         {isLockedBySchedule && (
-          <div className="bg-amber-100 text-amber-900 text-xs px-3 py-1.5 rounded-lg border border-amber-300 font-medium">
-            🔒 Academic Time-Lock Active (In Class)
+          <div role="alert" className="bg-amber-100 text-amber-900 text-xs px-3 py-2 rounded-lg border border-amber-300 font-medium">
+            Academic time-lock is active. Your class schedule temporarily blocks accepting or updating errands. You can try again when class ends.
           </div>
         )}
       </div>
@@ -91,6 +91,7 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
                   <Button
                     size="sm"
                     variant="secondary"
+                    disabled={isLockedBySchedule}
                     onClick={() => onUpdateStatus?.(task.id, 'PURCHASED')}
                   >
                     Mark Purchased
@@ -101,6 +102,7 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
                   <Button
                     size="sm"
                     variant="secondary"
+                    disabled={isLockedBySchedule}
                     onClick={() => onUpdateStatus?.(task.id, 'DELIVERING')}
                   >
                     Start Delivery
@@ -111,6 +113,7 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={isLockedBySchedule}
                     className="border-emerald-600 text-emerald-700 hover:bg-emerald-600"
                     leftIcon={<CheckCircle2 className="w-4 h-4" />}
                     onClick={() => onUpdateStatus?.(task.id, 'COMPLETED')}
