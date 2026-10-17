@@ -6,6 +6,7 @@ export interface NavbarProps {
   isOnline: boolean;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onRegister: () => void;
   pendingSyncCount?: number;
 }
 
@@ -13,6 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isOnline,
   activeTab,
   onTabChange,
+  onRegister,
   pendingSyncCount = 0,
 }) => {
   const navItems = [
@@ -66,6 +68,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Online/Offline Status Indicator */}
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onRegister}
+              className="text-sm font-semibold text-msu-gold hover:text-white transition-colors"
+            >
+              Create account
+            </button>
             {isOnline ? (
               <Badge variant="success" size="sm" className="flex items-center gap-1 bg-emerald-950/80 text-emerald-300 border-emerald-500/40">
                 <Wifi className="w-3 h-3" />

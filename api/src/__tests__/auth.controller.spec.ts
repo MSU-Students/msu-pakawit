@@ -8,6 +8,9 @@ describe('AuthController', () => {
   let app;
   const authService = {
     login: jest.fn().mockResolvedValue({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 3600 }),
+    register: jest.fn().mockResolvedValue({ message: 'Check your email' }),
+    resendVerification: jest.fn().mockResolvedValue({ message: 'Check your email' }),
+    verifyEmail: jest.fn().mockResolvedValue({ message: 'Email verified' }),
   };
 
   beforeEach(async () => {
@@ -50,5 +53,55 @@ describe('AuthController', () => {
       .send({ username: 'amina', password: 'password123', role: 'ADMIN' })
       .expect(400);
     expect(authService.login).not.toHaveBeenCalled();
+  });
+
+  it('accepts valid registration details and rejects attempts to choose a role', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'a-long-password',
+      })
+      .expect(201)
+      .expect({ message: 'Check your email' });
+
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'a-long-password',
+        role: 'ADMIN',
+      })
+      .expect(400);
+    expect(authService.register).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a verification token and rejects malformed tokens', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: 'a'.repeat(64) })
+      .expect(201)
+      .expect({ message: 'Email verified' });
+
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: 'invalid' })
+      .expect(400);
+    expect(authService.verifyEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a valid email for verification-link resending', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/resend-verification')
+      .send({ email: 'amina@msumain.edu.ph' })
+      .expect(201)
+      .expect({ message: 'Check your email' });
+    expect(authService.resendVerification).toHaveBeenCalledWith({ email: 'amina@msumain.edu.ph' });
   });
 });

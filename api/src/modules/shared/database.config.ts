@@ -9,6 +9,8 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
     password: process.env.DATABASE_PASSWORD || 'postgres',
     database: process.env.DATABASE_NAME || 'msu_pakawit_db',
     autoLoadEntities: true,
+    migrations: [__dirname + '/../../migrations/*{.js,.ts}'],
+    migrationsRun: process.env.NODE_ENV === 'production',
     synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
     logging: process.env.NODE_ENV === 'development',
   };

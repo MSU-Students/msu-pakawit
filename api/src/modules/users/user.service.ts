@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -48,6 +49,48 @@ export class UserService {
 
   async createUser(dto: CreateUserDto): Promise<User> {
     return this.saveNewUser(dto, dto.role ?? UserRole.STUDENT);
+  }
+
+  async createPendingUser(
+    dto: Pick<CreateUserDto, 'msuIdNumber' | 'username' | 'fullName' | 'email' | 'password'>,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<User> {
+    return this.saveNewUser(dto, UserRole.STUDENT, false, tokenHash, expiresAt);
+  }
+
+  async verifyEmailToken(tokenHash: string): Promise<void> {
+    const result = await this.userRepo
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        emailVerified: true,
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+      })
+      .where('emailVerificationTokenHash = :tokenHash', { tokenHash })
+      .andWhere('emailVerified = :emailVerified', { emailVerified: false })
+      .andWhere('emailVerificationExpiresAt > :now', { now: new Date() })
+      .execute();
+
+    if (result.affected !== 1) {
+      throw new BadRequestException('The verification link is invalid or has expired');
+    }
+  }
+
+  async updateEmailVerificationToken(email: string, tokenHash: string, expiresAt: Date): Promise<boolean> {
+    const result = await this.userRepo
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: expiresAt,
+      })
+      .where('email = :email', { email: email.trim().toLowerCase() })
+      .andWhere('emailVerified = :emailVerified', { emailVerified: false })
+      .execute();
+
+    return result.affected === 1;
   }
 
   async createFirstAdmin(dto: Omit<CreateUserDto, 'role'>, providedSecret?: string): Promise<User> {
@@ -106,11 +149,20 @@ export class UserService {
     return this.userRepo.save(user);
   }
 
-  private async saveNewUser(dto: CreateUserDto, role: UserRole): Promise<User> {
+  private async saveNewUser(
+    dto: Pick<CreateUserDto, 'msuIdNumber' | 'username' | 'fullName' | 'email' | 'password'>,
+    role: UserRole,
+    emailVerified = true,
+    tokenHash: string | null = null,
+    expiresAt: Date | null = null,
+  ): Promise<User> {
     const user = this.userRepo.create({
       ...this.userFields(dto),
       passwordHash: await argon2.hash(dto.password, { type: argon2.argon2id }),
       role,
+      emailVerified,
+      emailVerificationTokenHash: tokenHash,
+      emailVerificationExpiresAt: expiresAt,
     });
     return this.saveWithConflictHandling(this.userRepo, user);
   }
