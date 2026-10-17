@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { UserController } from '../modules/users/user.controller';
 import { UserRole } from '../modules/users/entities/user.entity';
@@ -25,6 +26,7 @@ describe('UserController authorization', () => {
   };
   const userService = {
     findById: jest.fn(),
+    updateProfile: jest.fn(),
     createUser: jest.fn().mockResolvedValue(user),
   };
   const jwtService = {
@@ -44,6 +46,11 @@ describe('UserController authorization', () => {
     }).compile();
 
     app = module.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }));
     await app.init();
   });
 
@@ -75,10 +82,63 @@ describe('UserController authorization', () => {
     const response = await request(app.getHttpServer())
       .post('/users')
       .set('Authorization', 'Bearer signed-token')
-      .send({})
+      .send({
+        msuIdNumber: user.msuIdNumber,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        password: 'correct horse battery staple',
+      })
       .expect(201);
 
     expect(response.body.username).toBe(user.username);
     expect(response.body.passwordHash).toBeUndefined();
+  });
+
+  it('updates the authenticated user profile with permitted self-service fields', async () => {
+    const updatedUser = {
+      ...user,
+      username: 'amina.radiamoda2',
+      fullName: 'Amina R.',
+      email: 'amina2@msumain.edu.ph',
+    };
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', username: user.username });
+    userService.findById.mockResolvedValue(user);
+    userService.updateProfile.mockResolvedValue(updatedUser);
+
+    const response = await request(app.getHttpServer())
+      .patch('/users/me')
+      .set('Authorization', 'Bearer signed-token')
+      .send({
+        username: ' Amina.Radiamoda2 ',
+        fullName: ' Amina R. ',
+        email: ' AMINA2@MSUMAIN.EDU.PH ',
+      })
+      .expect(200);
+
+    expect(userService.updateProfile).toHaveBeenCalledWith('user-1', {
+      username: 'amina.radiamoda2',
+      fullName: 'Amina R.',
+      email: 'amina2@msumain.edu.ph',
+    });
+    expect(response.body).toMatchObject({
+      id: 'user-1',
+      username: 'amina.radiamoda2',
+      fullName: 'Amina R.',
+      email: 'amina2@msumain.edu.ph',
+    });
+  });
+
+  it('rejects attempts to update protected account fields without updating the user', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', username: user.username });
+    userService.findById.mockResolvedValue(user);
+
+    await request(app.getHttpServer())
+      .patch('/users/me')
+      .set('Authorization', 'Bearer signed-token')
+      .send({ role: UserRole.ADMIN, isActive: false })
+      .expect(400);
+
+    expect(userService.updateProfile).not.toHaveBeenCalled();
   });
 });
