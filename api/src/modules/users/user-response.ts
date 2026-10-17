@@ -6,6 +6,8 @@ export const toUserResponse = (user: User) => ({
   username: user.username,
   fullName: user.fullName,
   email: user.email,
+  phone: user.phone ?? null,
+  alternativeEmail: user.alternativeEmail ?? null,
   role: user.role,
   isCourierVerified: user.isCourierVerified,
   isActive: user.isActive,
