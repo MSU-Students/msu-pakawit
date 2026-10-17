@@ -5,8 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Product } from './product.entity';
+import { User } from '../../users/entities/user.entity';
+import { StoreCategory } from './store-category.entity';
 
 @Entity('stores')
 export class Store {
@@ -18,6 +22,13 @@ export class Store {
 
   @Column()
   hostName: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  ownerId: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'ownerId' })
+  owner: User | null;
 
   @Column()
   name: string; // e.g. 'Amina Campus Essentials'
@@ -39,6 +50,9 @@ export class Store {
 
   @OneToMany(() => Product, (product) => product.store)
   products: Product[];
+
+  @OneToMany(() => StoreCategory, (category) => category.store)
+  categories: StoreCategory[];
 
   @CreateDateColumn()
   createdAt: Date;

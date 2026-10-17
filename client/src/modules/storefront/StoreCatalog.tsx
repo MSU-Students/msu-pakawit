@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Store, ShoppingCart, MapPin, Percent, Info } from 'lucide-react';
+import { Store, ShoppingCart, MapPin, Percent, Info, Search } from 'lucide-react';
 import { Card } from '../shared/Card';
 import { Button } from '../shared/Button';
 import { Badge } from '../shared/Badge';
@@ -20,6 +20,8 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
 }) => {
   const [cart, setCart] = useState<Array<{ product: ProductItem; quantity: number }>>([]);
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
+  const [categoryFilter, setCategoryFilter] = useState('All categories');
+  const [search, setSearch] = useState('');
 
   const dropZones = [
     'Science Complex Drop Hub',
@@ -56,6 +58,13 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
     pricingItems,
     store.markupPercentage,
     store.defaultConvenienceFee
+  );
+
+  const categories = ['All categories', ...new Set(products.filter((product) => product.isActive !== false).map((product) => product.category))];
+  const visibleProducts = products.filter((product) =>
+    product.isActive !== false &&
+    (categoryFilter === 'All categories' || product.category === categoryFilter) &&
+    `${product.name} ${product.description ?? ''}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleCheckout = () => {
@@ -118,21 +127,32 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">
-              Campus Curated Catalog ({products.length})
+              Campus Curated Catalog ({visibleProducts.length})
             </h3>
             <span className="text-xs text-slate-500">
               On-demand purchase by peer student couriers
             </span>
           </div>
 
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input aria-label="Search products" className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm" placeholder="Search products" value={search} onChange={(event) => setSearch(event.target.value)} />
+            </label>
+            <select aria-label="Filter by category" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {products.map((product) => (
+            {visibleProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onAddToCart={handleAddToCart}
               />
             ))}
+            {visibleProducts.length === 0 && <p className="col-span-full rounded-lg border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">No products match your search.</p>}
           </div>
         </div>
 
