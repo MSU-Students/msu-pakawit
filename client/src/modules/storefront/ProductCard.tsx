@@ -14,6 +14,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }
   return (
     <Card hoverEffect className="flex flex-col justify-between h-full bg-white">
       <div>
+        {product.imageUrls?.[0] && <img src={product.imageUrls[0]} alt={product.name} className="mb-3 h-36 w-full rounded-lg object-cover" />}
         <div className="flex items-center justify-between mb-2">
           <Badge variant="neutral" size="sm">
             {product.category}
@@ -30,13 +31,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }
         <h3 className="font-semibold text-slate-900 text-base leading-snug line-clamp-2">
           {product.name}
         </h3>
+        {product.description && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{product.description}</p>}
 
         <div className="mt-3 flex items-baseline gap-2">
           <span className="text-xl font-bold text-msu-maroon">
-            ₱{product.markupPrice.toFixed(2)}
+            ₱{Number(product.markupPrice).toFixed(2)}
           </span>
           <span className="text-xs text-slate-400 line-through">
-            ₱{product.basePrice.toFixed(2)}
+            ₱{Number(product.basePrice).toFixed(2)}
           </span>
         </div>
         <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
