@@ -1,11 +1,30 @@
+jest.mock('../modules/shared/apiClient', () => ({
+  apiClient: {
+    get: jest.fn().mockResolvedValue({
+      success: true,
+      data: [],
+    }),
+    post: jest.fn(),
+  },
+}));
+
 import { render, screen } from '@testing-library/react';
 import App from '../App';
 
-describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
-  it('renders application title and navigation', () => {
+describe('MSU Pakawit App Shell', () => {
+  it('renders the application title and navigation', () => {
     render(<App />);
-    const titleElements = screen.getAllByText(/MSU PAKAWIT/i);
-    expect(titleElements.length).toBeGreaterThan(0);
-    expect(screen.getByText(/Sprint 0 Inception/i)).toBeInTheDocument();
+
+    expect(
+      screen.getAllByText(/MSU PAKAWIT/i).length
+    ).toBeGreaterThan(0);
+
+    expect(
+      screen.getAllByText(/^Storefront$/i).length
+    ).toBeGreaterThan(0);
+
+    expect(
+      screen.getByText(/Errand Dispatch/i)
+    ).toBeInTheDocument();
   });
 });
