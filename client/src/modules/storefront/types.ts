@@ -9,6 +9,8 @@ export interface ProductItem {
   markupPrice: number;
   isAvailable: boolean;
   isActive: boolean;
+  updatedAt?: string | number | Date;
+  syncedAt?: number;
 }
 
 export interface VirtualStore {
@@ -21,6 +23,10 @@ export interface VirtualStore {
   markupPercentage: number;
   rating?: number;
   isOpen?: boolean;
+  isActive?: boolean;
+  description?: string;
+  updatedAt?: string | number | Date;
+  syncedAt?: number;
   products?: ProductItem[];
 }
 

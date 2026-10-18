@@ -17,6 +17,7 @@ export interface SyncQueueItem {
 export interface LocalStore {
   id: string;
   hostStudentId: string;
+  hostName?: string;
   name: string;
   description?: string;
   vendorOrigin: string; // e.g., 'Commercial Center', 'MSU Main Gate', 'Cafeteria'
@@ -25,18 +26,28 @@ export interface LocalStore {
   isActive: boolean;
   isSynced: boolean;
   updatedAt: number;
+  syncedAt: number;
 }
 
 export interface LocalProduct {
   id: string;
   storeId: string;
   name: string;
+  description: string;
+  imageUrls: string[];
   category: string;
   basePrice: number; // physical vendor price
   markupPrice: number; // calculated listed price
   isAvailable: boolean;
+  isActive: boolean;
   isSynced: boolean;
   updatedAt: number;
+  syncedAt: number;
+}
+
+export interface SyncMetadata {
+  key: string;
+  value: number;
 }
 
 export interface LocalErrandOrder {

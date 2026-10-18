@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './modules/offline/db';
+import { useCatalog } from './modules/offline/useCatalog';
 import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
 import { StoreCatalog } from './modules/storefront/StoreCatalog';
 import { ProductManagement } from './modules/storefront/ProductManagement';
-import { storefrontApi } from './modules/storefront/storefrontApi';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
 import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal';
@@ -14,7 +14,7 @@ import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
-import type { VirtualStore, ProductItem } from './modules/storefront/types';
+import type { VirtualStore } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
 
@@ -30,57 +30,6 @@ const mockStore: VirtualStore = {
   rating: 4.9,
   isOpen: true,
 };
-
-const mockProducts: ProductItem[] = [
-  {
-    id: 'prod-yellow-pad',
-    storeId: 'store-commercial-center-01',
-    name: 'Yellow Pad Paper (80 leaves)',
-    description: '',
-    imageUrls: [],
-    category: 'School Supplies',
-    basePrice: 45.0,
-    markupPrice: 49.5,
-    isAvailable: true,
-    isActive: true,
-  },
-  {
-    id: 'prod-pilot-g2',
-    storeId: 'store-commercial-center-01',
-    name: 'Pilot G2 Gel Pen 0.5 Black',
-    description: '',
-    imageUrls: [],
-    category: 'School Supplies',
-    basePrice: 65.0,
-    markupPrice: 71.5,
-    isAvailable: true,
-    isActive: true,
-  },
-  {
-    id: 'prod-pater-chicken',
-    storeId: 'store-commercial-center-01',
-    name: 'Traditional Chicken Pater (Spicy Palapa)',
-    description: '',
-    imageUrls: [],
-    category: 'Campus Food',
-    basePrice: 50.0,
-    markupPrice: 55.0,
-    isAvailable: true,
-    isActive: true,
-  },
-  {
-    id: 'prod-usb-otg',
-    storeId: 'store-commercial-center-01',
-    name: 'USB Type-C OTG Flash Drive 32GB',
-    description: '',
-    imageUrls: [],
-    category: 'Electronics',
-    basePrice: 220.0,
-    markupPrice: 242.0,
-    isAvailable: true,
-    isActive: true,
-  },
-];
 
 const mockSchedules: ScheduleBlock[] = [
   {
@@ -114,11 +63,12 @@ const mockSchedules: ScheduleBlock[] = [
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
-  const [catalogStore, setCatalogStore] = useState<VirtualStore>(mockStore);
-  const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>(mockProducts);
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
+  const catalog = useCatalog(isSimulatedOffline);
+  const catalogStore = catalog.store ?? mockStore;
+  const catalogProducts = catalog.products;
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
@@ -159,25 +109,7 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
-  const refreshPublicCatalog = async (storeId?: string) => {
-    const response = storeId ? await storefrontApi.getStore(storeId) : await storefrontApi.listStores();
-    const store = storeId ? response.data : response.data?.[0];
-    if (!response.success || !store) return;
-    setCatalogStore({
-      ...store,
-      rating: store.rating ?? 0,
-      isOpen: store.isOpen ?? true,
-    });
-    setCatalogProducts((store.products ?? []).map((product) => ({
-      ...product,
-      basePrice: Number(product.basePrice),
-      markupPrice: Number(product.markupPrice),
-    })));
-  };
-
-  useEffect(() => {
-    void refreshPublicCatalog();
-  }, []);
+  const refreshPublicCatalog = (storeId?: string) => catalog.refresh(storeId);
 
   const handlePlaceOrder = async (orderData: any) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -206,7 +138,7 @@ export const App: React.FC = () => {
       dropZone: orderData.dropZone,
       status: 'PENDING',
       otpCode: '7429',
-      isSynced: !isSimulatedOffline,
+      isSynced: catalog.isOnline,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -258,14 +190,14 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900">
       <Navbar
-        isOnline={!isSimulatedOffline}
+        isOnline={catalog.isOnline}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         pendingSyncCount={pendingSyncQueue.length}
       />
 
       <OfflineBanner
-        isOnline={!isSimulatedOffline}
+        isOnline={catalog.isOnline}
         isSyncing={isSyncing}
         pendingCount={pendingSyncQueue.length}
         onSyncNow={handleSyncNow}
@@ -314,11 +246,39 @@ export const App: React.FC = () => {
         </div>
 
         {activeTab === 'storefront' && (
-          <StoreCatalog
-            store={catalogStore}
-            products={catalogProducts}
-            onPlaceOrder={handlePlaceOrder}
-          />
+          catalog.store ? (
+            <StoreCatalog
+              store={catalog.store}
+              products={catalogProducts}
+              onPlaceOrder={handlePlaceOrder}
+              isOnline={catalog.isOnline}
+              isRefreshing={catalog.isRefreshing}
+              isServingCache={catalog.source === 'cache'}
+              lastSyncAt={catalog.lastSyncAt}
+              catalogError={catalog.error}
+              onRefresh={() => { void catalog.refresh(); }}
+            />
+          ) : (
+            <Card className="py-12 text-center">
+              <p className="font-semibold text-slate-800">
+                {catalog.status === 'loading'
+                  ? 'Loading catalog…'
+                  : catalog.status === 'fresh'
+                    ? 'No storefronts are available.'
+                    : 'No cached storefront is available.'}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                {catalog.isOnline
+                  ? catalog.error ?? 'Refresh the catalog when the server is available.'
+                  : 'Connect to the internet and refresh the catalog to make it available offline.'}
+              </p>
+              {catalog.isOnline && (
+                <Button className="mt-4" isLoading={catalog.isRefreshing} onClick={() => { void catalog.refresh(); }}>
+                  Refresh Catalog
+                </Button>
+              )}
+            </Card>
+          )
         )}
 
         {activeTab === 'catalog-management' && (
@@ -358,7 +318,7 @@ export const App: React.FC = () => {
                 size="sm"
                 isLoading={isSyncing}
                 onClick={handleSyncNow}
-                disabled={isSimulatedOffline || pendingSyncQueue.length === 0}
+                disabled={!catalog.isOnline || pendingSyncQueue.length === 0}
               >
                 Trigger Sync ({pendingSyncQueue.length})
               </Button>

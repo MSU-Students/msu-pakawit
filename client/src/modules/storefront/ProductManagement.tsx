@@ -53,11 +53,11 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({ onCatalogC
     }
     const [storesResult, categoriesResult] = await Promise.all([
       storefrontApi.listMyStores(),
-      storefrontApi.listCategories(selectedStoreId),
+      storefrontApi.listCategories(storeId),
     ]);
-    if (!storeResult.success || !storeResult.data) throw new Error(storeResult.error || 'Could not load the catalog.');
+    if (!storesResult.success || !storesResult.data) throw new Error(storesResult.error || 'Could not load the catalog.');
     if (!categoriesResult.success || !categoriesResult.data) throw new Error(categoriesResult.error || 'Could not load categories.');
-    const store = storeResult.data.find((candidate) => candidate.id === storeId);
+    const store = storesResult.data.find((candidate) => candidate.id === storeId);
     setProducts(store?.products ?? []);
     setCategories(categoriesResult.data);
   }, []);

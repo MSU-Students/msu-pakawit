@@ -25,6 +25,7 @@ describe('Dexie.js Offline Database & Outbox Queue', () => {
       isActive: true,
       isSynced: true,
       updatedAt: Date.now(),
+      syncedAt: Date.now(),
     });
 
     const store = await testDb.stores.get('store-1');
