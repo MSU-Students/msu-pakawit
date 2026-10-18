@@ -5,6 +5,7 @@ import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
 import { StoreCatalog } from './modules/storefront/StoreCatalog';
+import { StoreBuilder } from './modules/storefront/StoreBuilder';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
 import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal';
@@ -247,6 +248,15 @@ export const App: React.FC = () => {
           >
             Storefront
           </Button>
+
+          <Button
+            size="sm"
+            variant={activeTab === 'store-builder' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('store-builder')}
+          >
+            Store Builder
+          </Button>
+
           <Button
             size="sm"
             variant={activeTab === 'dispatch' ? 'primary' : 'ghost'}
@@ -278,6 +288,8 @@ export const App: React.FC = () => {
           />
         )}
 
+        {activeTab === 'store-builder' && <StoreBuilder />}
+        
         {activeTab === 'dispatch' && (
           <ErrandFeed
             tasks={tasks}
