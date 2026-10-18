@@ -28,3 +28,39 @@ export interface PricingBreakdown {
   convenienceFee: number;
   grandTotal: number;
 }
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface OrderFormData {
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  dropZone: string;
+  buyerStudentId?: string;
+  deliveryNotes?: string;
+}
+
+export interface OrderReceiptData {
+  id: string;
+  storeId: string;
+  storeName: string;
+  vendorOrigin: string;
+  hostName?: string;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  dropZone: string;
+  buyerStudentId?: string;
+  deliveryNotes?: string;
+  items: OrderItem[];
+  totalProductCost: number;
+  convenienceFee: number;
+  totalAmount: number;
+  status: 'Pending' | string;
+  createdAt: number | string;
+}

@@ -6,7 +6,9 @@ export class ApiClient {
   constructor(baseUrl?: string) {
     let envBaseUrl = '';
     try {
-      envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+      if (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) {
+        envBaseUrl = process.env.VITE_API_BASE_URL;
+      }
     } catch {
       envBaseUrl = '';
     }

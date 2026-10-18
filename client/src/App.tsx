@@ -12,6 +12,7 @@ import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { apiClient } from './modules/shared/apiClient';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -144,47 +145,78 @@ export const App: React.FC = () => {
   }, []);
 
   const handlePlaceOrder = async (orderData: any) => {
-    const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = orderData.id || `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+    const timestamp = orderData.createdAt || Date.now();
+
     const newTask: ErrandTask = {
-      id: newTaskId,
-      storeName: mockStore.name,
+      id: orderId,
+      storeName: orderData.storeName || mockStore.name,
       vendorOrigin: mockStore.vendorOrigin,
       dropZone: orderData.dropZone,
       itemCount: orderData.items.length,
       totalAmount: orderData.totalAmount,
       convenienceFee: orderData.convenienceFee,
       status: 'PENDING',
-      buyerName: 'Current Student User',
-      createdAt: Date.now(),
+      buyerName: orderData.customerName || 'Current Student User',
+      createdAt: timestamp,
     };
 
-    // Save to Dexie IndexedDB
+    // Save complete order details to Dexie IndexedDB
     await db.orders.put({
-      id: newTaskId,
-      buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
+      id: orderId,
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone,
+      deliveryAddress: orderData.deliveryAddress,
+      deliveryNotes: orderData.deliveryNotes,
+      buyerStudentId: orderData.buyerStudentId || '2023-01429',
+      storeId: orderData.storeId || mockStore.id,
+      storeName: orderData.storeName || mockStore.name,
       items: orderData.items,
       totalProductCost: orderData.totalProductCost,
       convenienceFee: orderData.convenienceFee,
       totalAmount: orderData.totalAmount,
       dropZone: orderData.dropZone,
-      status: 'PENDING',
+      status: 'Pending',
       otpCode: '7429',
       isSynced: !isSimulatedOffline,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
     });
 
     // Queue in Dexie outbox
     await db.queueSync({
       entityType: 'ERRAND_ORDER',
-      entityId: newTaskId,
+      entityId: orderId,
       action: 'CREATE',
-      payload: newTask,
+      payload: {
+        id: orderId,
+        ...orderData,
+        status: 'Pending',
+        createdAt: timestamp,
+      },
     });
 
+    // If online, post to NestJS backend API
+    if (!isSimulatedOffline) {
+      apiClient
+        .post(`/stores/${orderData.storeId || mockStore.id}/orders`, {
+          customerName: orderData.customerName,
+          customerPhone: orderData.customerPhone,
+          deliveryAddress: orderData.deliveryAddress,
+          dropZone: orderData.dropZone,
+          deliveryNotes: orderData.deliveryNotes,
+          buyerStudentId: orderData.buyerStudentId,
+          items: orderData.items,
+          totalProductCost: orderData.totalProductCost,
+          convenienceFee: orderData.convenienceFee,
+          totalAmount: orderData.totalAmount,
+        })
+        .catch((e) => {
+          console.warn('API order post deferred to offline sync outbox:', e);
+        });
+    }
+
     setTasks((prev) => [newTask, ...prev]);
-    setActiveTab('dispatch');
   };
 
   const handleAcceptTask = (taskId: string) => {
@@ -363,7 +395,7 @@ export const App: React.FC = () => {
       <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800 text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MSU Pakawit © 2026 • Mindanao State University Marawi Campus</span>
-          <span className="text-slate-500">Sprint 0: Architecture, Setup & Design Standards (5 Scrum Teams)</span>
+          <span className="text-slate-500">Sprint 0 Inception: Architecture, Setup & Design Standards (5 Scrum Teams)</span>
         </div>
       </footer>
     </div>

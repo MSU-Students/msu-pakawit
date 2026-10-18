@@ -41,15 +41,20 @@ export interface LocalProduct {
 
 export interface LocalErrandOrder {
   id: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryNotes?: string;
   buyerStudentId: string;
   runnerStudentId?: string;
   storeId: string;
+  storeName?: string;
   items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
   totalProductCost: number;
   convenienceFee: number;
   totalAmount: number;
   dropZone: string; // e.g. 'Science Complex Hub', 'Kasadpan Hall', 'CNSM Lobby'
-  status: 'PENDING' | 'ACCEPTED' | 'PURCHASED' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED';
+  status: 'Pending' | 'PENDING' | 'ACCEPTED' | 'PURCHASED' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED';
   otpCode?: string;
   isSynced: boolean;
   createdAt: number;
