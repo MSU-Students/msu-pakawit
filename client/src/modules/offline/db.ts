@@ -29,12 +29,12 @@ export class MSUPakawitDatabase extends Dexie {
 
     this.version(2)
       .stores({
-      stores: 'id, hostStudentId, vendorOrigin, isActive, isSynced, updatedAt, syncedAt',
-      products: 'id, storeId, category, isAvailable, isActive, isSynced, updatedAt, syncedAt',
-      orders: 'id, buyerStudentId, runnerStudentId, storeId, status, isSynced, createdAt',
-      academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
-      syncQueue: '++id, entityType, entityId, action, status, createdAt',
-      syncMetadata: '&key',
+        stores: 'id, hostStudentId, vendorOrigin, isActive, isSynced, updatedAt, syncedAt',
+        products: 'id, storeId, category, isAvailable, isActive, isSynced, updatedAt, syncedAt',
+        orders: 'id, buyerStudentId, runnerStudentId, storeId, status, isSynced, createdAt',
+        academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
+        syncQueue: '++id, entityType, entityId, action, status, createdAt',
+        syncMetadata: '&key',
       })
       .upgrade(async (transaction) => {
         const syncedAt = Date.now();

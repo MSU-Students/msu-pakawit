@@ -36,8 +36,9 @@ const path = (storeId: string, suffix = '') => `/stores/${encodeURIComponent(sto
 export const storefrontApi = {
   login: (username: string, password: string): Promise<ApiResponse<LoginResponse>> =>
     apiClient.post('/auth/login', { username, password }),
-  listStores: (): Promise<ApiResponse<VirtualStore[]>> => apiClient.get('/stores'),
-  getStore: (storeId: string): Promise<ApiResponse<VirtualStore>> => apiClient.get(path(storeId)),
+  listStores: (signal?: AbortSignal): Promise<ApiResponse<VirtualStore[]>> => apiClient.get('/stores', signal),
+  getStore: (storeId: string, signal?: AbortSignal): Promise<ApiResponse<VirtualStore>> =>
+    apiClient.get(path(storeId), signal),
   listMyStores: (): Promise<ApiResponse<VirtualStore[]>> => apiClient.get('/stores/mine'),
   createStore: (input: StoreInput): Promise<ApiResponse<VirtualStore>> => apiClient.post('/stores', input),
   listCategories: (storeId: string): Promise<ApiResponse<StoreCategory[]>> => apiClient.get(path(storeId, '/categories')),

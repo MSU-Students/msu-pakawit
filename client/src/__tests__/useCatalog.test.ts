@@ -39,6 +39,7 @@ describe('useCatalog', () => {
   let originalOnLine: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    jest.useRealTimers();
     originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     jest.clearAllMocks();
@@ -49,6 +50,7 @@ describe('useCatalog', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     if (originalOnLine) {
       Object.defineProperty(navigator, 'onLine', originalOnLine);
     } else {
@@ -122,7 +124,6 @@ describe('useCatalog', () => {
 
     expect(result.current.status).toBe('cached');
     expect(result.current.error).toBe('Catalog request timed out.');
-    jest.useRealTimers();
   });
 
   it('reports an explicit empty-cache state when offline without cached data', async () => {

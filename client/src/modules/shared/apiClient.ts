@@ -18,7 +18,7 @@ export class ApiClient {
     this.accessToken = token;
   }
 
-  private async request<T>(path: string, method: string, body?: unknown): Promise<ApiResponse<T>> {
+  private async request<T>(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<ApiResponse<T>> {
     try {
       const headers: Record<string, string> = {};
       if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -27,6 +27,7 @@ export class ApiClient {
         method,
         headers,
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(signal === undefined ? {} : { signal }),
       });
       const data = response.status === 204 ? undefined : await response.json().catch(() => undefined);
       if (!response.ok) {
@@ -39,8 +40,8 @@ export class ApiClient {
     }
   }
 
-  async get<T>(path: string): Promise<ApiResponse<T>> {
-    return this.request<T>(path, 'GET');
+  async get<T>(path: string, signal?: AbortSignal): Promise<ApiResponse<T>> {
+    return this.request<T>(path, 'GET', undefined, signal);
   }
 
   post<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
