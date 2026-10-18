@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -17,10 +18,17 @@ export class Product {
   storeId: string;
 
   @ManyToOne(() => Store, (store) => store.products, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'storeId' })
   store: Store;
 
   @Column()
   name: string;
+
+  @Column({ type: 'text', default: '' })
+  description: string;
+
+  @Column({ type: 'text', array: true, default: () => "'{}'" })
+  imageUrls: string[];
 
   @Column()
   category: string;
@@ -33,6 +41,9 @@ export class Product {
 
   @Column({ default: true })
   isAvailable: boolean;
+
+  @Column({ default: true })
+  isActive: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
