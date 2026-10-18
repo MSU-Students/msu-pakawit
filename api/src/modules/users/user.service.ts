@@ -38,7 +38,16 @@ export class UserService {
     return this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.username = :username', { username: normalizeUsername(username) })
+      .where('user.username = :username OR LOWER(user.email) = :username', {
+        username: normalizeUsername(username),
+      })
+      .getOne();
+  }
+
+  findByEmailForAuth(email: string): Promise<User | null> {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = :email', { email: email.trim().toLowerCase() })
       .getOne();
   }
 

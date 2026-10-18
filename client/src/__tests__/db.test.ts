@@ -45,4 +45,17 @@ describe('Dexie.js Offline Database & Outbox Queue', () => {
     expect(pending[0].entityType).toBe('STORE');
     expect(pending[0].status).toBe('PENDING');
   });
+
+  it('persists the selected role in the current user profile', async () => {
+    await testDb.saveCurrentUserRole('EMPLOYEE');
+    const databaseName = testDb.name;
+    await testDb.close();
+    testDb = new MSUPakawitDatabase(databaseName);
+    await testDb.open();
+
+    await expect(testDb.getCurrentUserProfile()).resolves.toEqual({
+      id: 'current',
+      role: 'EMPLOYEE',
+    });
+  });
 });

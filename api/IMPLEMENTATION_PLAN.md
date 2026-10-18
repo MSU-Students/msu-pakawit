@@ -1,5 +1,39 @@
 # Implementation Plan: Ticket #1 - Username/Password Login
 
+> The ticket plan below records the original login work. Email registration and
+> verification were added later and are documented in the current section below.
+
+## Email registration and verification
+
+Email registration is implemented in `modules/auth/`. Signup creates only a row in
+`pending_registrations`; a verified token creates a user and removes that pending row in
+one transaction. The local email sender writes HTML/plain-text messages under
+`.local-mailbox/` without logging the verification URL.
+
+Run the TypeORM migration and cleanup command from the repository root:
+
+```powershell
+npm run migration:run --workspace=api
+npm run cleanup:pending-registrations --workspace=api
+```
+
+This repository has no initial-schema migration. For a new local database, start the API
+once with `DATABASE_SYNCHRONIZE=true` to create the existing schema, stop it, and then run
+the registration migration. The migration fails explicitly if `users` does not exist.
+Use `npm run migration:revert --workspace=api` to remove the pending-registration
+feature. The down migration restores the previous username/MSU ID constraints when safe;
+it refuses to truncate long email usernames or discard missing MSU IDs.
+Configure `APP_BASE_URL`, `VERIFICATION_TOKEN_TTL_HOURS`, `ALLOWED_EMAIL_DOMAINS`,
+`PASSWORD_MIN_LENGTH`, and the local email settings in `.env`; see `.env.example`.
+
+Registration and verification coverage is in `src/__tests__/auth.registration.spec.ts`;
+run it with `npm run test --workspace=api -- --runInBand`.
+The configured email provider is `local`, which writes messages to `.local-mailbox/`;
+other provider values fail explicitly until an adapter is implemented. Registration and
+resend share a process-local limit of five requests per hour for each normalized email
+and source IP; deployments with multiple API instances should replace this with shared
+rate-limit storage.
+
 ## Objective
 Initialize backend user and authentication modules. `UserModule` owns user accounts and role management; `AuthModule` implements username/password login, verifies a one-way password hash, and returns a signed bearer access token with a safe user profile.
 

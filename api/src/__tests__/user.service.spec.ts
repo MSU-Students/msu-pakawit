@@ -54,6 +54,22 @@ describe('UserService', () => {
     expect(created.role).toBe(UserRole.STUDENT);
   });
 
+  it('looks up authentication identifiers by username or normalized email', async () => {
+    const builder = {
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    repository.createQueryBuilder.mockReturnValue(builder);
+
+    await service.findByUsernameForAuth(' MEMBER@MSUMAIN.EDU.PH ');
+
+    expect(builder.where).toHaveBeenCalledWith(
+      'user.username = :username OR LOWER(user.email) = :username',
+      { username: 'member@msumain.edu.ph' },
+    );
+  });
+
   it('creates the first administrator only with the bootstrap secret and an empty table', async () => {
     repository.count = jest.fn().mockResolvedValue(0);
     const admin = await service.createFirstAdmin({

@@ -14,32 +14,36 @@ export class ApiClient {
   }
 
   async get<T>(path: string): Promise<ApiResponse<T>> {
-    try {
-      const response = await fetch(`${this.baseUrl}${path}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return { success: true, data };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'API request failed' };
-    }
+    return this.request<T>(path);
   }
 
-  async post<T>(path: string, body: any): Promise<ApiResponse<T>> {
+  async post<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  private async request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${this.baseUrl}${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const response = await fetch(`${this.baseUrl}${path}`, init);
+      const data = await response.json() as {
+        message?: string | string[];
+        code?: string;
+      } & T;
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const message = Array.isArray(data.message)
+          ? data.message.join(', ')
+          : data.message ?? `HTTP ${response.status}: ${response.statusText}`;
+        return { success: false, error: message, code: data.code };
       }
-      const data = await response.json();
       return { success: true, data };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'API request failed' };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'API request failed',
+      };
     }
   }
 }
