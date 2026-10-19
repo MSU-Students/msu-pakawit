@@ -2,16 +2,6 @@ import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max } from 'class-vali
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStoreDto {
-  @ApiProperty({ example: '2023-01429' })
-  @IsString()
-  @IsNotEmpty()
-  hostStudentId: string;
-
-  @ApiProperty({ example: 'Amina Radiamoda' })
-  @IsString()
-  @IsNotEmpty()
-  hostName: string;
-
   @ApiProperty({ example: 'Amina Campus Supplies' })
   @IsString()
   @IsNotEmpty()
