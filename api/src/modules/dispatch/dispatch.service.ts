@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { ErrandOrder, ErrandOrderStatus } from './entities/errand-order.entity';
 import { CreateErrandDto } from './dto/create-errand.dto';
 import { ClaimErrandDto } from './dto/claim-errand.dto';
+import { NotificationService } from './notifications/notification.service';
 
 @Injectable()
 export class DispatchService {
   constructor(
     @InjectRepository(ErrandOrder)
     private readonly orderRepo: Repository<ErrandOrder>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async createErrandOrder(dto: CreateErrandDto): Promise<ErrandOrder> {
@@ -38,7 +40,14 @@ export class DispatchService {
 
     errand.runnerStudentId = dto.runnerStudentId;
     errand.status = ErrandOrderStatus.ACCEPTED;
-    return this.orderRepo.save(errand);
+    const saved = await this.orderRepo.save(errand);
+
+    // Runner gets an assignment alert; the buyer gets a status update.
+    // Not awaited: NotificationService.send never throws and should not slow the response.
+    void this.notifications.notifyAssignment(saved.runnerStudentId, saved.id, saved.status);
+    void this.notifications.notifyStatusChange(saved.buyerStudentId, saved.id, saved.status);
+
+    return saved;
   }
 
   async updateErrandStatus(errandId: string, status: ErrandOrderStatus): Promise<ErrandOrder> {
@@ -47,6 +56,15 @@ export class DispatchService {
       throw new NotFoundException(`Errand order ${errandId} not found`);
     }
     errand.status = status;
-    return this.orderRepo.save(errand);
+    const saved = await this.orderRepo.save(errand);
+
+    // Tell everyone involved (buyer, and runner once one is assigned).
+    const recipients = new Set<string>([saved.buyerStudentId]);
+    if (saved.runnerStudentId) recipients.add(saved.runnerStudentId);
+    for (const studentId of recipients) {
+      void this.notifications.notifyStatusChange(studentId, saved.id, saved.status);
+    }
+
+    return saved;
   }
 }
