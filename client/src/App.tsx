@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './modules/offline/db';
+import { productRefreshService } from './modules/offline/productRefreshService';
 import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
@@ -107,6 +108,23 @@ export const App: React.FC = () => {
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
 
+  // Read cached products reactively so the catalog updates after a server refresh.
+  const cachedProducts = useLiveQuery(() => db.products.toArray(), []) || [];
+
+  // Keep the showcase products available when the cache is empty or the API is unavailable.
+  const catalogProducts: ProductItem[] =
+    cachedProducts.length > 0
+      ? cachedProducts.map((product) => ({
+          id: product.id,
+          storeId: product.storeId,
+          name: product.name,
+          category: product.category,
+          basePrice: product.basePrice,
+          markupPrice: product.markupPrice,
+          isAvailable: product.isAvailable,
+        }))
+      : mockProducts;
+
   // Simulated live tasks state
   const [tasks, setTasks] = useState<ErrandTask[]>([
     {
@@ -139,9 +157,14 @@ export const App: React.FC = () => {
   const isLocked = isCourierLockedBySchedule(mockSchedules).isLocked;
 
   useEffect(() => {
-    syncEngine.initAutoSync();
-    return () => syncEngine.cleanup();
-  }, []);
+  syncEngine.initAutoSync();
+  productRefreshService.initAutoRefresh();
+
+  return () => {
+    syncEngine.cleanup();
+    productRefreshService.cleanup();
+  };
+}, []);
 
   const handlePlaceOrder = async (orderData: any) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -273,7 +296,7 @@ export const App: React.FC = () => {
         {activeTab === 'storefront' && (
           <StoreCatalog
             store={mockStore}
-            products={mockProducts}
+            products={catalogProducts}
             onPlaceOrder={handlePlaceOrder}
           />
         )}
