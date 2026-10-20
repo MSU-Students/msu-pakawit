@@ -77,6 +77,10 @@ export class UserService {
     if (dto.username !== undefined) user.username = normalizeUsername(dto.username);
     if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
     if (dto.email !== undefined) user.email = dto.email.trim().toLowerCase();
+    if (dto.phone !== undefined) user.phone = dto.phone?.trim() || null;
+    if (dto.alternativeEmail !== undefined) {
+      user.alternativeEmail = dto.alternativeEmail?.trim().toLowerCase() || null;
+    }
     return this.saveWithConflictHandling(this.userRepo, user);
   }
 

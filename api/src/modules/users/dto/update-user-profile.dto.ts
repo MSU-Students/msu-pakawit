@@ -25,4 +25,18 @@ export class UpdateUserProfileDto {
   @IsEmail()
   @MaxLength(254)
   email?: string;
+
+  @ApiPropertyOptional({ example: '+63 912 345 6789', nullable: true })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
+  @ApiPropertyOptional({ example: 'amina.personal@example.com', nullable: true })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  alternativeEmail?: string | null;
 }

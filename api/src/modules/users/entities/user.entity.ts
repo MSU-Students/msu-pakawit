@@ -35,6 +35,12 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ nullable: true, length: 32 })
+  phone: string | null;
+
+  @Column({ nullable: true, length: 254 })
+  alternativeEmail: string | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,
