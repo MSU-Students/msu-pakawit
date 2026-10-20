@@ -66,6 +66,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Online/Offline Status Indicator */}
           <div className="flex items-center gap-3">
+            <a href="/register" className="text-sm font-semibold text-white/90 hover:text-msu-gold">
+              Create account
+            </a>
             {isOnline ? (
               <Badge variant="success" size="sm" className="flex items-center gap-1 bg-emerald-950/80 text-emerald-300 border-emerald-500/40">
                 <Wifi className="w-3 h-3" />

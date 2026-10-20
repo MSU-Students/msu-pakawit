@@ -1,5 +1,12 @@
+import type { UserRole } from '../roles/role';
+
 export type SyncAction = 'CREATE' | 'UPDATE' | 'DELETE';
 export type SyncStatus = 'PENDING' | 'SYNCING' | 'SYNCED' | 'FAILED';
+
+export interface LocalUserProfile {
+  id: 'current';
+  role: UserRole | null;
+}
 
 export interface SyncQueueItem {
   id?: number;

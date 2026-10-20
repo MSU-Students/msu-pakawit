@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { AcademicSchedule } from '../../guardrails/entities/academic-schedule.entity';
 
@@ -16,14 +17,15 @@ export enum UserRole {
 }
 
 @Entity('users')
+@Index('UQ_users_email_lower', { unique: true, synchronize: false })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  msuIdNumber: string;
+  @Column({ unique: true, nullable: true })
+  msuIdNumber: string | null;
 
-  @Column({ unique: true, length: 32 })
+  @Column({ unique: true, length: 254 })
   username: string;
 
   @Column({ select: false })
@@ -35,12 +37,15 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ default: true })
+  emailVerified: boolean;
+
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.STUDENT,
+    nullable: true,
   })
-  role: UserRole;
+  role: UserRole | null;
 
   @Column({ default: false })
   isCourierVerified: boolean;

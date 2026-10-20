@@ -12,6 +12,10 @@ import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { RegisterPage, VerifyEmailPage } from './modules/auth/AuthPages';
+import { RoleSelectionScreen } from './modules/roles/RoleSelectionScreen';
+import { useRole } from './modules/roles/useRole';
+import { getRoleFeatures, type UserRole } from './modules/roles/role';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -98,8 +102,9 @@ const mockSchedules: ScheduleBlock[] = [
   },
 ];
 
-export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('storefront');
+const AppShell: React.FC<{ role: UserRole }> = ({ role }) => {
+  const roleFeatures = getRoleFeatures(role);
+  const [activeTab, setActiveTab] = useState(roleFeatures?.homeTab ?? 'storefront');
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
@@ -238,6 +243,22 @@ export const App: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {roleFeatures && (
+          <section aria-labelledby="role-home-title" className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+            <h1 id="role-home-title" className="text-2xl font-bold text-slate-900">
+              {roleFeatures.homeTitle}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">{roleFeatures.homeDescription}</p>
+            <ul className="mt-4 flex flex-wrap gap-2" aria-label={`${role} features`}>
+              {roleFeatures.highlights.map((feature) => (
+                <li key={feature} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Domain Tab Switcher for Sprint 0 Showcase */}
         <div className="flex sm:hidden overflow-x-auto gap-2 pb-3 mb-4">
           <Button
@@ -369,4 +390,47 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export const App: React.FC = () => {
+  const pathname = window.location.pathname;
+  const { role, isLoading, isSaving, error, saveRole } = useRole();
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [isSelectingRegistrationRole, setIsSelectingRegistrationRole] = useState(false);
+
+  useEffect(() => {
+    setSelectedRole(role);
+  }, [role]);
+
+  if (pathname === '/verify-email') return <VerifyEmailPage />;
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100">
+        <p role="status" aria-busy="true" className="text-slate-600">Loading your profile…</p>
+      </main>
+    );
+  }
+
+  if (pathname === '/register' && role && !isSelectingRegistrationRole) {
+    return <RegisterPage role={role} onBack={() => setIsSelectingRegistrationRole(true)} />;
+  }
+
+  if (pathname === '/register' || !role) {
+    return (
+      <RoleSelectionScreen
+        selectedRole={selectedRole}
+        onRoleSelect={setSelectedRole}
+        onContinue={async () => {
+          if (selectedRole && await saveRole(selectedRole) && pathname === '/register') {
+            setIsSelectingRegistrationRole(false);
+          }
+        }}
+        isSaving={isSaving}
+        error={error ?? undefined}
+      />
+    );
+  }
+
+  return <AppShell role={role} />;
+};
+
 export default App;

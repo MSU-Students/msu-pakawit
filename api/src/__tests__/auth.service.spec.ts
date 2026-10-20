@@ -1,8 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
 import * as argon2 from 'argon2';
 import { AuthService } from '../modules/auth/auth.service';
+import { RegistrationRateLimiter } from '../modules/auth/registration-rate-limiter';
 import { UserRole } from '../modules/users/entities/user.entity';
 import { UserService } from '../modules/users/user.service';
 
@@ -29,6 +31,9 @@ describe('AuthService', () => {
       userService as unknown as UserService,
       jwtService as unknown as JwtService,
       { get: jest.fn().mockReturnValue(3600) } as unknown as ConfigService,
+      {} as unknown as DataSource,
+      { sendVerificationEmail: jest.fn(), sendAlreadyRegisteredEmail: jest.fn() },
+      new RegistrationRateLimiter(),
     );
   });
 

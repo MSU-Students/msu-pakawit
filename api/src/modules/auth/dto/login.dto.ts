@@ -7,8 +7,8 @@ export class LoginDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsString()
   @MinLength(3)
-  @MaxLength(32)
-  @Matches(/^[a-zA-Z0-9._-]+$/)
+  @MaxLength(254)
+  @Matches(/^(?:[a-zA-Z0-9._-]{3,32}|[^\s@]+@[^\s@]+\.[^\s@]+)$/)
   username: string;
 
   @ApiProperty({ example: 'a-long-password' })
