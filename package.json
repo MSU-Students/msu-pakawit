@@ -32,5 +32,9 @@
     "micro-storefront"
   ],
   "author": "MSU Pakawit Engineering Team",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "allowScripts": {
+    "argon2@0.45.1": true,
+    "esbuild@0.25.12": true
+  }
 }
