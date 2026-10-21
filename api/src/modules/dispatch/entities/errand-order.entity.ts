@@ -23,6 +23,12 @@ export class ErrandOrder {
   @Column()
   buyerStudentId: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  customerName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  contactNumber: string | null;
+
   @Column({ nullable: true })
   runnerStudentId: string;
 

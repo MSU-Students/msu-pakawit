@@ -4,22 +4,48 @@ import { Repository } from 'typeorm';
 import { ErrandOrder, ErrandOrderStatus } from './entities/errand-order.entity';
 import { CreateErrandDto } from './dto/create-errand.dto';
 import { ClaimErrandDto } from './dto/claim-errand.dto';
-import { NotificationService } from './notifications/notification.service';
+import { buildReceipt, OrderReceipt } from './receipt/order-receipt';
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const sameAmount = (a: number, b: number): boolean => Math.abs(a - b) < 0.005;
 
 @Injectable()
 export class DispatchService {
   constructor(
     @InjectRepository(ErrandOrder)
     private readonly orderRepo: Repository<ErrandOrder>,
-    private readonly notifications: NotificationService,
   ) {}
 
-  async createErrandOrder(dto: CreateErrandDto): Promise<ErrandOrder> {
+  async createErrandOrder(dto: CreateErrandDto): Promise<OrderReceipt> {
+    // Never trust client-side totals: recompute them from the selected items.
+    const totalProductCost = round2(
+      dto.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+    );
+    const totalAmount = round2(totalProductCost + dto.convenienceFee);
+
+    if (
+      !sameAmount(dto.totalProductCost, totalProductCost) ||
+      !sameAmount(dto.totalAmount, totalAmount)
+    ) {
+      throw new BadRequestException('Order totals do not match the selected items');
+    }
+
     const order = this.orderRepo.create({
       ...dto,
+      totalProductCost,
+      totalAmount,
       status: ErrandOrderStatus.PENDING,
     });
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+    return buildReceipt(saved);
+  }
+
+  async getReceipt(errandId: string): Promise<OrderReceipt> {
+    const order = await this.orderRepo.findOne({ where: { id: errandId } });
+    if (!order) {
+      throw new NotFoundException(`Errand order ${errandId} not found`);
+    }
+    return buildReceipt(order);
   }
 
   async findPendingErrands(): Promise<ErrandOrder[]> {
@@ -40,14 +66,7 @@ export class DispatchService {
 
     errand.runnerStudentId = dto.runnerStudentId;
     errand.status = ErrandOrderStatus.ACCEPTED;
-    const saved = await this.orderRepo.save(errand);
-
-    // Runner gets an assignment alert; the buyer gets a status update.
-    // Not awaited: NotificationService.send never throws and should not slow the response.
-    void this.notifications.notifyAssignment(saved.runnerStudentId, saved.id, saved.status);
-    void this.notifications.notifyStatusChange(saved.buyerStudentId, saved.id, saved.status);
-
-    return saved;
+    return this.orderRepo.save(errand);
   }
 
   async updateErrandStatus(errandId: string, status: ErrandOrderStatus): Promise<ErrandOrder> {
@@ -56,15 +75,6 @@ export class DispatchService {
       throw new NotFoundException(`Errand order ${errandId} not found`);
     }
     errand.status = status;
-    const saved = await this.orderRepo.save(errand);
-
-    // Tell everyone involved (buyer, and runner once one is assigned).
-    const recipients = new Set<string>([saved.buyerStudentId]);
-    if (saved.runnerStudentId) recipients.add(saved.runnerStudentId);
-    for (const studentId of recipients) {
-      void this.notifications.notifyStatusChange(studentId, saved.id, saved.status);
-    }
-
-    return saved;
+    return this.orderRepo.save(errand);
   }
 }
