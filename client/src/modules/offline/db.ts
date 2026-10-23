@@ -1,3 +1,4 @@
+
 import Dexie, { type Table } from 'dexie';
 import type {
   LocalStore,
@@ -7,12 +8,19 @@ import type {
   SyncQueueItem,
 } from './types';
 
+export interface LocalProfileImage {
+  id: string;
+  image: string;
+  updatedAt: number;
+}
+
 export class MSUPakawitDatabase extends Dexie {
   stores!: Table<LocalStore, string>;
   products!: Table<LocalProduct, string>;
   orders!: Table<LocalErrandOrder, string>;
   academicSchedules!: Table<LocalAcademicSchedule, string>;
   syncQueue!: Table<SyncQueueItem, number>;
+  profileImages!: Table<LocalProfileImage, string>;
 
   constructor(databaseName: string = 'MSUPakawitOfflineDB') {
     super(databaseName);
@@ -24,13 +32,43 @@ export class MSUPakawitDatabase extends Dexie {
       academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
       syncQueue: '++id, entityType, entityId, action, status, createdAt',
     });
+
+    // Version 2: Add profile image storage.
+    this.version(2).stores({
+      stores: 'id, hostStudentId, vendorOrigin, isActive, isSynced, updatedAt',
+      products: 'id, storeId, category, isAvailable, isSynced, updatedAt',
+      orders: 'id, buyerStudentId, runnerStudentId, storeId, status, isSynced, createdAt',
+      academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
+      syncQueue: '++id, entityType, entityId, action, status, createdAt',
+      profileImages: 'id, updatedAt',
+    });
   }
 
-  /**
-   * Helper to queue an outbox mutation for background sync
-   */
-  async queueSync(item: Omit<SyncQueueItem, 'id' | 'retryCount' | 'createdAt' | 'updatedAt' | 'status'>) {
+  async saveProfileImage(image: string, userId: string) {
+    await this.profileImages.put({
+      id: userId,
+      image,
+      updatedAt: Date.now(),
+    });
+  }
+
+  async getProfileImage(userId: string): Promise<string | null> {
+    const profile = await this.profileImages.get(userId);
+    return profile?.image ?? null;
+  }
+
+  async deleteProfileImage(userId: string): Promise<void> {
+    await this.profileImages.delete(userId);
+  }
+
+  async queueSync(
+    item: Omit<
+      SyncQueueItem,
+      'id' | 'retryCount' | 'createdAt' | 'updatedAt' | 'status'
+    >
+  ) {
     const now = Date.now();
+
     return await this.syncQueue.add({
       ...item,
       status: 'PENDING',
@@ -40,11 +78,11 @@ export class MSUPakawitDatabase extends Dexie {
     });
   }
 
-  /**
-   * Helper to get pending sync items
-   */
   async getPendingSyncItems() {
-    return await this.syncQueue.where('status').equals('PENDING').toArray();
+    return await this.syncQueue
+      .where('status')
+      .equals('PENDING')
+      .toArray();
   }
 }
 

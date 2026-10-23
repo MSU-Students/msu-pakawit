@@ -11,6 +11,7 @@ import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal'
 import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
+import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
@@ -98,14 +99,37 @@ const mockSchedules: ScheduleBlock[] = [
   },
 ];
 
+const LOCAL_DEMO_PROFILE_ID = 'local-demo-profile';
+
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void db.getProfileImage(LOCAL_DEMO_PROFILE_ID)
+      .then((image) => {
+        if (isMounted) setProfileImage(image);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load the local demo profile image', error);
+        if (isMounted) {
+          setProfileImageLoadError('Could not load the saved profile image from this browser.');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Simulated live tasks state
   const [tasks, setTasks] = useState<ErrandTask[]>([
@@ -185,6 +209,18 @@ export const App: React.FC = () => {
 
     setTasks((prev) => [newTask, ...prev]);
     setActiveTab('dispatch');
+  };
+
+  const handleProfileImageSave = async (image: string) => {
+    await db.saveProfileImage(image, LOCAL_DEMO_PROFILE_ID);
+    setProfileImage(image);
+    setProfileImageLoadError(null);
+  };
+
+  const handleProfileImageDelete = async () => {
+    await db.deleteProfileImage(LOCAL_DEMO_PROFILE_ID);
+    setProfileImage(null);
+    setProfileImageLoadError(null);
   };
 
   const handleAcceptTask = (taskId: string) => {
@@ -268,6 +304,13 @@ export const App: React.FC = () => {
           >
             Sync Outbox
           </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'profile' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
+          </Button>
         </div>
 
         {activeTab === 'storefront' && (
@@ -292,6 +335,15 @@ export const App: React.FC = () => {
             studentName="Amina Radiamoda"
             studentId="2023-01429"
             schedules={mockSchedules}
+          />
+        )}
+
+        {activeTab === 'profile' && (
+          <ProfileImageSettings
+            image={profileImage}
+            loadError={profileImageLoadError}
+            onSave={handleProfileImageSave}
+            onDelete={handleProfileImageDelete}
           />
         )}
 
