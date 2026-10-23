@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Store, ShoppingCart, MapPin, Percent, Info } from 'lucide-react';
+import { Store, ShoppingCart, MapPin, Percent, Info, Search, Plus, Minus, Trash2 } from 'lucide-react';
 import { Card } from '../shared/Card';
 import { Button } from '../shared/Button';
 import { Badge } from '../shared/Badge';
 import { ProductCard } from './ProductCard';
 import { calculateOrderPricing } from './pricingCalculator';
+import { useCart, MAX_QTY } from './useCart';
 import type { VirtualStore, ProductItem } from './types';
 
 export interface StoreCatalogProps {
@@ -18,8 +19,12 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
   products,
   onPlaceOrder,
 }) => {
-  const [cart, setCart] = useState<Array<{ product: ProductItem; quantity: number }>>([]);
+  // US-2.1.2: cart logic is now in useCart (add / remove / adjust / persist)
+  const { lines: cart, addItem, setQuantity, removeItem, clearCart, itemCount } = useCart(products);
+
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
+  const [categoryFilter, setCategoryFilter] = useState('All categories');
+  const [search, setSearch] = useState('');
 
   const dropZones = [
     'Science Complex Drop Hub',
@@ -30,25 +35,12 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
   ];
 
   const handleAddToCart = (product: ProductItem) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
+    addItem(product);
   };
 
-  const handleRemoveFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-  };
-
+  // Totals recalculate automatically on every cart change (computed on each render)
   const pricingItems = cart.map((item) => ({
-    basePrice: item.product.basePrice,
+    basePrice: Number(item.product.basePrice),
     quantity: item.quantity,
   }));
 
@@ -56,6 +48,13 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
     pricingItems,
     store.markupPercentage,
     store.defaultConvenienceFee
+  );
+
+  const categories = ['All categories', ...new Set(products.filter((product) => product.isActive !== false).map((product) => product.category))];
+  const visibleProducts = products.filter((product) =>
+    product.isActive !== false &&
+    (categoryFilter === 'All categories' || product.category === categoryFilter) &&
+    `${product.name} ${product.description ?? ''}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleCheckout = () => {
@@ -67,14 +66,14 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
         productId: i.product.id,
         name: i.product.name,
         quantity: i.quantity,
-        unitPrice: i.product.markupPrice,
+        unitPrice: Number(i.product.markupPrice),
       })),
       totalProductCost: pricingBreakdown.subtotal,
       convenienceFee: pricingBreakdown.convenienceFee,
       totalAmount: pricingBreakdown.grandTotal,
     };
     onPlaceOrder?.(orderData);
-    setCart([]);
+    clearCart();
   };
 
   return (
@@ -118,21 +117,32 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">
-              Campus Curated Catalog ({products.length})
+              Campus Curated Catalog ({visibleProducts.length})
             </h3>
             <span className="text-xs text-slate-500">
               On-demand purchase by peer student couriers
             </span>
           </div>
 
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input aria-label="Search products" className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm" placeholder="Search products" value={search} onChange={(event) => setSearch(event.target.value)} />
+            </label>
+            <select aria-label="Filter by category" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {products.map((product) => (
+            {visibleProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onAddToCart={handleAddToCart}
               />
             ))}
+            {visibleProducts.length === 0 && <p className="col-span-full rounded-lg border border-dashed border-slate-300 py-10 text-center text-sm text-slate-500">No products match your search.</p>}
           </div>
         </div>
 
@@ -145,32 +155,67 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
                 <h4 className="font-bold text-slate-900">Your Errand Cart</h4>
               </div>
               <Badge variant="neutral" size="sm">
-                {cart.reduce((a, b) => a + b.quantity, 0)} items
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
               </Badge>
             </div>
 
             {cart.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-sm">
+              <div className="py-8 text-center text-slate-500 text-sm">
                 <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                Select items from the catalog to build an errand request
+                <p className="font-medium text-slate-700">Your cart is empty</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Select items from the catalog to build an errand request
+                </p>
               </div>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {cart.map(({ product, quantity }) => (
-                    <div key={product.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-100">
-                      <div>
-                        <div className="font-semibold text-slate-800">{product.name}</div>
-                        <div className="text-slate-500">Qty: {quantity} × ₱{product.markupPrice.toFixed(2)}</div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {cart.map(({ product, quantity }) => {
+                    const unitPrice = Number(product.markupPrice);
+                    return (
+                      <div key={product.id} className="text-xs bg-slate-50 p-2 rounded border border-slate-100">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="font-semibold text-slate-800">{product.name}</div>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${product.name} from cart`}
+                            onClick={() => removeItem(product.id)}
+                            className="text-rose-500 hover:text-rose-700 shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="mt-1 flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              aria-label={`Decrease quantity of ${product.name}`}
+                              onClick={() => setQuantity(product.id, quantity - 1)}
+                              className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-7 text-center font-semibold text-slate-800">{quantity}</span>
+                            <button
+                              type="button"
+                              aria-label={`Increase quantity of ${product.name}`}
+                              onClick={() => setQuantity(product.id, quantity + 1)}
+                              disabled={quantity >= MAX_QTY}
+                              className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-slate-500">₱{unitPrice.toFixed(2)} each</div>
+                            <div className="font-bold text-slate-900">₱{(unitPrice * quantity).toFixed(2)}</div>
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveFromCart(product.id)}
-                        className="text-rose-500 hover:text-rose-700 text-xs px-1 font-bold"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Drop Zone Selection */}
