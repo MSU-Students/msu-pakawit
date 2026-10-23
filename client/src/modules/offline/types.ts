@@ -49,6 +49,9 @@ export interface LocalErrandOrder {
   convenienceFee: number;
   totalAmount: number;
   dropZone: string; // e.g. 'Science Complex Hub', 'Kasadpan Hall', 'CNSM Lobby'
+  buyerName?: string;
+  contactNumber?: string;
+  deliveryAddress?: string;
   status: 'PENDING' | 'ACCEPTED' | 'PURCHASED' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED';
   otpCode?: string;
   isSynced: boolean;

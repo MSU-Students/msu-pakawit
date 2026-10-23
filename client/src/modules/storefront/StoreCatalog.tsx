@@ -6,21 +6,23 @@ import { Badge } from '../shared/Badge';
 import { ProductCard } from './ProductCard';
 import { calculateOrderPricing } from './pricingCalculator';
 import type { VirtualStore, ProductItem } from './types';
-
+import { OrderCheckout } from '../dispatch/OrderCheckout';
+import type { Order } from '../dispatch/orderTypes';
 export interface StoreCatalogProps {
   store: VirtualStore;
   products: ProductItem[];
   onPlaceOrder?: (orderData: any) => void;
-}
+  onSubmitOrder?: (order: Order) => Promise<void> | void;
+} 
 
 export const StoreCatalog: React.FC<StoreCatalogProps> = ({
   store,
   products,
-  onPlaceOrder,
+  onSubmitOrder,
 }) => {
   const [cart, setCart] = useState<Array<{ product: ProductItem; quantity: number }>>([]);
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
-
+    const [checkingOut, setCheckingOut] = useState(false);
   const dropZones = [
     'Science Complex Drop Hub',
     'Kasadpan Hall Runner Point',
@@ -58,22 +60,20 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
     store.defaultConvenienceFee
   );
 
-  const handleCheckout = () => {
+    const handleCheckout = () => {
     if (cart.length === 0) return;
-    const orderData = {
-      storeId: store.id,
-      dropZone: selectedDropZone,
-      items: cart.map((i) => ({
-        productId: i.product.id,
-        name: i.product.name,
-        quantity: i.quantity,
-        unitPrice: i.product.markupPrice,
-      })),
-      totalProductCost: pricingBreakdown.subtotal,
-      convenienceFee: pricingBreakdown.convenienceFee,
-      totalAmount: pricingBreakdown.grandTotal,
-    };
-    onPlaceOrder?.(orderData);
+    setCheckingOut(true);
+  };
+
+  const checkoutItems = cart.map((i) => ({
+    productId: i.product.id,
+    name: i.product.name,
+    quantity: i.quantity,
+    unitPrice: i.product.markupPrice,
+  }));
+
+  const handleSubmitOrder = async (order: Order) => {
+    await onSubmitOrder?.(order);
     setCart([]);
   };
 
@@ -138,6 +138,21 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
 
         {/* Errand Cart & Drop Hub Selection */}
         <div className="space-y-4">
+                    {checkingOut ? (
+            <OrderCheckout
+              store={store}
+              items={checkoutItems}
+              pricing={{
+                totalProductCost: pricingBreakdown.subtotal,
+                convenienceFee: pricingBreakdown.convenienceFee,
+                totalAmount: pricingBreakdown.grandTotal,
+              }}
+              deliveryAddress={selectedDropZone}
+              onSubmit={handleSubmitOrder}
+              onBack={() => setCheckingOut(false)}
+              onDone={() => setCheckingOut(false)}
+            />
+          ) : (
           <Card className="sticky top-20 border-slate-300">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
@@ -230,6 +245,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
               </div>
             )}
           </Card>
+          )}
         </div>
       </div>
     </div>
