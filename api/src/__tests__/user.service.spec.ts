@@ -1,8 +1,8 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
-import { User, UserRole } from '../modules/users/entities/user.entity';
+import { SelectableRole, User, UserRole } from '../modules/users/entities/user.entity';
 import { UserService } from '../modules/users/user.service';
 
 describe('UserService', () => {
@@ -52,6 +52,31 @@ describe('UserService', () => {
     expect(await argon2.verify(created.passwordHash, 'correct horse battery staple')).toBe(true);
     expect(created.passwordHash).not.toBe('correct horse battery staple');
     expect(created.role).toBe(UserRole.STUDENT);
+    expect(created.preferredRole).toBe(SelectableRole.STUDENT);
+  });
+
+  it('saves a selectable role preference without changing account authorization', async () => {
+    repository.findOneBy.mockResolvedValue({
+      id: 'user-1',
+      role: UserRole.STUDENT,
+      preferredRole: SelectableRole.STUDENT,
+    });
+
+    const updated = await service.updatePreferredRole('user-1', SelectableRole.COURIER);
+
+    expect(updated.preferredRole).toBe(SelectableRole.COURIER);
+    expect(updated.role).toBe(UserRole.STUDENT);
+    expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({
+      role: UserRole.STUDENT,
+      preferredRole: SelectableRole.COURIER,
+    }));
+  });
+
+  it('rejects ADMIN as a self-service role preference', async () => {
+    await expect(service.updatePreferredRole('user-1', 'ADMIN' as SelectableRole)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('creates the first administrator only with the bootstrap secret and an empty table', async () => {
@@ -66,6 +91,7 @@ describe('UserService', () => {
 
     expect(manager.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1)', [1146110032]);
     expect(admin.role).toBe(UserRole.ADMIN);
+    expect(admin.preferredRole).toBe(SelectableRole.STUDENT);
     expect(await argon2.verify(admin.passwordHash, 'correct horse battery staple')).toBe(true);
   });
 

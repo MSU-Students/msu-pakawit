@@ -1,4 +1,4 @@
-import { User } from './entities/user.entity';
+import { isSelectableRole, SelectableRole, User } from './entities/user.entity';
 
 export const toUserResponse = (user: User) => ({
   id: user.id,
@@ -7,6 +7,7 @@ export const toUserResponse = (user: User) => ({
   fullName: user.fullName,
   email: user.email,
   role: user.role,
+  preferredRole: isSelectableRole(user.preferredRole) ? user.preferredRole : SelectableRole.STUDENT,
   isCourierVerified: user.isCourierVerified,
   isActive: user.isActive,
   createdAt: user.createdAt,

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import * as argon2 from 'argon2';
+import { isSelectableRole, SelectableRole } from '../users/entities/user.entity';
 import { UserService } from '../users/user.service';
 import { LoginDto } from './dto/login.dto';
 
@@ -44,6 +45,7 @@ export class AuthService {
         username: user.username,
         fullName: user.fullName,
         role: user.role,
+        preferredRole: isSelectableRole(user.preferredRole) ? user.preferredRole : SelectableRole.STUDENT,
       },
     };
   }

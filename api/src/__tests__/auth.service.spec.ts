@@ -3,7 +3,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuthService } from '../modules/auth/auth.service';
-import { UserRole } from '../modules/users/entities/user.entity';
+import { SelectableRole, UserRole } from '../modules/users/entities/user.entity';
 import { UserService } from '../modules/users/user.service';
 
 describe('AuthService', () => {
@@ -20,6 +20,7 @@ describe('AuthService', () => {
       fullName: 'Amina Radiamoda',
       email: 'amina@msumain.edu.ph',
       role: UserRole.STUDENT,
+      preferredRole: SelectableRole.EMPLOYEE,
       isActive: true,
     };
     userService = { findByUsernameForAuth: jest.fn().mockResolvedValue(user) };
@@ -45,7 +46,13 @@ describe('AuthService', () => {
       accessToken: 'signed-access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
-      user: { id: 'user-1', username: 'amina.radiamoda', fullName: 'Amina Radiamoda', role: UserRole.STUDENT },
+      user: {
+        id: 'user-1',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        role: UserRole.STUDENT,
+        preferredRole: SelectableRole.EMPLOYEE,
+      },
     });
     expect(JSON.stringify(result)).not.toContain(user.passwordHash);
     expect(JSON.stringify(result)).not.toContain('correct horse battery staple');
