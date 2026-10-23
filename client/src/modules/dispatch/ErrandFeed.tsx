@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigation, MapPin, DollarSign, Package, CheckCircle2 } from 'lucide-react';
+import { Navigation, MapPin, DollarSign, Package, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Card } from '../shared/Card';
 import { Button } from '../shared/Button';
 import { RunnerStatusBadge } from './RunnerStatusBadge';
@@ -8,6 +8,7 @@ import type { ErrandTask } from './types';
 export interface ErrandFeedProps {
   tasks: ErrandTask[];
   isLockedBySchedule: boolean;
+  userRole?: string;
   onAcceptTask?: (taskId: string) => void;
   onUpdateStatus?: (taskId: string, newStatus: ErrandTask['status']) => void;
 }
@@ -15,9 +16,12 @@ export interface ErrandFeedProps {
 export const ErrandFeed: React.FC<ErrandFeedProps> = ({
   tasks,
   isLockedBySchedule,
+  userRole = 'STUDENT',
   onAcceptTask,
   onUpdateStatus,
 }) => {
+  const isCourier = userRole === 'COURIER';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -31,12 +35,22 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
           </p>
         </div>
 
-        {isLockedBySchedule && (
-          <div className="bg-amber-100 text-amber-900 text-xs px-3 py-1.5 rounded-lg border border-amber-300 font-medium">
-            🔒 Academic Time-Lock Active (In Class)
+        {isCourier && isLockedBySchedule && (
+          <div className="bg-amber-100 text-amber-900 text-xs px-3 py-1.5 rounded-lg border border-amber-300 font-medium flex items-center gap-1.5">
+            <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>🔒 Academic Time-Lock Active (In Class)</span>
           </div>
         )}
       </div>
+
+      {!isCourier && (
+        <div className="bg-blue-50 text-blue-900 text-xs px-3.5 py-2.5 rounded-lg border border-blue-200 flex items-center gap-2">
+          <span className="font-semibold">Role View ({userRole}):</span>
+          <span>
+            You are browsing the dispatch tracker. Errand claiming and delivery milestone actions are restricted to peer <strong className="font-semibold">Couriers</strong>.
+          </span>
+        </div>
+      )}
 
       {tasks.length === 0 ? (
         <Card className="text-center py-12 text-slate-400">
@@ -76,47 +90,59 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
                   Buyer: {task.buyerName}
                 </span>
 
-                {task.status === 'PENDING' && (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={isLockedBySchedule}
-                    onClick={() => onAcceptTask?.(task.id)}
-                  >
-                    {isLockedBySchedule ? 'Locked (Class Schedule)' : 'Accept Errand'}
-                  </Button>
-                )}
+                {isCourier ? (
+                  <>
+                    {task.status === 'PENDING' && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={isLockedBySchedule}
+                        onClick={() => onAcceptTask?.(task.id)}
+                      >
+                        {isLockedBySchedule ? 'Locked (Class Schedule)' : 'Accept Errand'}
+                      </Button>
+                    )}
 
-                {task.status === 'ACCEPTED' && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => onUpdateStatus?.(task.id, 'PURCHASED')}
-                  >
-                    Mark Purchased
-                  </Button>
-                )}
+                    {task.status === 'ACCEPTED' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onUpdateStatus?.(task.id, 'PURCHASED')}
+                      >
+                        Mark Purchased
+                      </Button>
+                    )}
 
-                {task.status === 'PURCHASED' && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => onUpdateStatus?.(task.id, 'DELIVERING')}
-                  >
-                    Start Delivery
-                  </Button>
-                )}
+                    {task.status === 'PURCHASED' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onUpdateStatus?.(task.id, 'DELIVERING')}
+                      >
+                        Start Delivery
+                      </Button>
+                    )}
 
-                {task.status === 'DELIVERING' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-emerald-600 text-emerald-700 hover:bg-emerald-600"
-                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                    onClick={() => onUpdateStatus?.(task.id, 'COMPLETED')}
-                  >
-                    Verify OTP & Complete
-                  </Button>
+                    {task.status === 'DELIVERING' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-600 text-emerald-700 hover:bg-emerald-600"
+                        leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                        onClick={() => onUpdateStatus?.(task.id, 'COMPLETED')}
+                      >
+                        Verify OTP & Complete
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-400 italic">
+                    {task.status === 'PENDING'
+                      ? 'Awaiting courier'
+                      : task.status === 'COMPLETED'
+                      ? 'Delivered'
+                      : 'In progress'}
+                  </span>
                 )}
               </div>
             </Card>
@@ -126,3 +152,5 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
     </div>
   );
 };
+
+export default ErrandFeed;

@@ -18,6 +18,7 @@ describe('UserController authorization', () => {
     fullName: 'Amina Radiamoda',
     email: 'amina@msumain.edu.ph',
     role: UserRole.ADMIN,
+    preferredRole: UserRole.STUDENT,
     isCourierVerified: false,
     isActive: true,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),

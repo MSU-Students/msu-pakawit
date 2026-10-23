@@ -18,6 +18,7 @@ import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { BootstrapAdminDto } from './dto/bootstrap-admin.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SetUserStatusDto } from './dto/set-user-status.dto';
+import { UpdatePreferredRoleDto } from './dto/update-preferred-role.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { UserRole } from './entities/user.entity';
 import { Roles } from './roles.decorator';
@@ -58,6 +59,19 @@ export class UserController {
   @ApiOperation({ summary: 'Update the authenticated user profile' })
   async updateMe(@Req() request: AuthenticatedRequest, @Body() dto: UpdateUserProfileDto) {
     return toUserResponse(await this.userService.updateProfile(request.user.sub, dto));
+  }
+
+  @Patch('me/preferred-role')
+  @UseGuards(JwtAuthGuard, ActiveUserGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Save the authenticated user interface role preference (STUDENT, EMPLOYEE, or COURIER)',
+  })
+  async updateMyPreferredRole(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdatePreferredRoleDto,
+  ) {
+    return toUserResponse(await this.userService.updatePreferredRole(request.user.sub, dto.preferredRole));
   }
 
   @Post()
