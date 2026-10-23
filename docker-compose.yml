@@ -31,7 +31,6 @@ services:
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: msu_pakawit_db
-      DATABASE_SYNCHRONIZE: "true"
       JWT_SECRET: msu_pakawit_local_dev_jwt_secret_2026
       JWT_ACCESS_TOKEN_TTL_SECONDS: 3600
       BOOTSTRAP_ADMIN_SECRET: msu_pakawit_local_bootstrap_secret_2026
