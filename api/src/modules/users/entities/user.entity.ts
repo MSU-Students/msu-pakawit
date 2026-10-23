@@ -17,7 +17,7 @@ export enum UserRole {
 }
 
 @Entity('users')
-@Index('UQ_users_email_lower', { unique: true, synchronize: false })
+@Index('UQ_users_email_lower', { synchronize: false })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { PendingRegistration } from './entities/pending-registration.entity';
 import { EMAIL_SENDER } from './email/email-sender';
 import { LocalMailboxEmailSender } from './email/local-mailbox-email-sender';
+import { SmtpEmailSender } from './email/smtp-email-sender';
 import { RegistrationRateLimiter } from './registration-rate-limiter';
 
 @Module({
@@ -22,15 +23,19 @@ import { RegistrationRateLimiter } from './registration-rate-limiter';
     AuthService,
     RegistrationRateLimiter,
     LocalMailboxEmailSender,
+    SmtpEmailSender,
     {
       provide: EMAIL_SENDER,
-      inject: [ConfigService, LocalMailboxEmailSender],
-      useFactory: (config: ConfigService, localMailbox: LocalMailboxEmailSender) => {
+      inject: [ConfigService, LocalMailboxEmailSender, SmtpEmailSender],
+      useFactory: (
+        config: ConfigService,
+        localMailbox: LocalMailboxEmailSender,
+        smtp: SmtpEmailSender,
+      ) => {
         const provider = config.get<string>('EMAIL_PROVIDER') ?? 'local';
-        if (provider !== 'local') {
-          throw new Error(`Unsupported EMAIL_PROVIDER "${provider}"; only "local" is configured.`);
-        }
-        return localMailbox;
+        if (provider === 'local') return localMailbox;
+        if (provider === 'smtp') return smtp;
+        throw new Error(`Unsupported EMAIL_PROVIDER "${provider}"; use "local" or "smtp".`);
       },
     },
   ],

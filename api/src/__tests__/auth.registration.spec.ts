@@ -1,7 +1,8 @@
 import {
   BadRequestException,
   GoneException,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -33,6 +34,11 @@ interface MemoryUser extends User {
   passwordHash: string;
   fullName: string;
   emailVerified: boolean;
+}
+
+interface MemoryManager {
+  query: jest.Mock;
+  getRepository: jest.Mock;
 }
 
 const registerDto = {
@@ -112,7 +118,7 @@ function createHarness(configValues: Record<string, string> = {}) {
     }),
   };
 
-  const manager = {
+  const manager: MemoryManager = {
     query: jest.fn(),
     getRepository: jest.fn((entity: typeof User | typeof PendingRegistration) =>
       entity === User ? userRepository : pendingRepository,
@@ -120,7 +126,7 @@ function createHarness(configValues: Record<string, string> = {}) {
   };
   let transactionQueue: Promise<unknown> = Promise.resolve();
   const dataSource = {
-    transaction: jest.fn(async (callback: (manager: typeof manager) => Promise<unknown>) => {
+    transaction: jest.fn(async (callback: (manager: MemoryManager) => Promise<unknown>) => {
       const previous = transactionQueue;
       let release: () => void = () => undefined;
       transactionQueue = new Promise<void>((resolve) => {
@@ -329,7 +335,7 @@ describe('Email registration and verification', () => {
       );
     }
     await expect(service.resendVerification('other@msumain.edu.ph', '192.0.2.1'))
-      .rejects.toBeInstanceOf(TooManyRequestsException);
+      .rejects.toBeInstanceOf(HttpException);
   });
 
   it('enforces the email limit even when requests come from different IPs', async () => {
@@ -337,8 +343,13 @@ describe('Email registration and verification', () => {
     for (let index = 0; index < 5; index += 1) {
       limiter.consume('member@msumain.edu.ph', `192.0.2.${index + 1}`);
     }
-    expect(() => limiter.consume('member@msumain.edu.ph', '192.0.2.6'))
-      .toThrow(TooManyRequestsException);
+    try {
+      limiter.consume('member@msumain.edu.ph', '192.0.2.6');
+      fail('Expected registration to be rate limited');
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    }
   });
 
   it('allows only one account when the same token is redeemed concurrently', async () => {

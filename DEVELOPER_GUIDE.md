@@ -122,6 +122,11 @@ Key environment variables:
 - `JWT_ACCESS_TOKEN_TTL_SECONDS=3600` — access-token lifetime
 - `BOOTSTRAP_ADMIN_SECRET` — one-time local admin bootstrap secret; unset it after creating the first admin
 - `VITE_API_BASE_URL=http://localhost:5000/api` — Frontend API Endpoint
+- `EMAIL_PROVIDER=local` — saves messages in `api/.local-mailbox` for development; use `smtp` for real email delivery
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` — SMTP server settings
+- `SMTP_FROM` — optional sender address approved by your SMTP provider; defaults to `SMTP_USER`
+
+To deliver verification messages to Gmail, set `EMAIL_PROVIDER=smtp`, keep `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, and `SMTP_SECURE=true`, then set `SMTP_USER` to your Gmail address and `SMTP_PASSWORD` to a Google App Password. Google requires 2-Step Verification to create an App Password. Do not use your normal Google account password or commit the App Password. Restart the API after changing `api/.env`. Leave `EMAIL_PROVIDER=local` to keep using the local mailbox without external email delivery.
 
 Usernames are case-insensitive and normalized to lowercase. They must be 3-32 characters and contain only letters, digits, periods, underscores, or hyphens; this format does not depend on a user's role or account type. Passwords are stored as Argon2id hashes.
 

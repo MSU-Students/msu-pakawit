@@ -1,4 +1,4 @@
-import { Injectable, TooManyRequestsException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 interface RateWindow {
   startedAt: number;
@@ -20,10 +20,13 @@ export class RegistrationRateLimiter {
     }
 
     if (keys.some((key) => (this.windows.get(key)?.count ?? 0) >= this.limit)) {
-      throw new TooManyRequestsException({
-        code: 'RATE_LIMITED',
-        message: 'Too many registration requests. Try again later.',
-      });
+      throw new HttpException(
+        {
+          code: 'RATE_LIMITED',
+          message: 'Too many registration requests. Try again later.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     for (const key of keys) {
