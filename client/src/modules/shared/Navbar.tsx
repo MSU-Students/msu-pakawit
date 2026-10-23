@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Navigation, Clock, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
+import { ShoppingBag, Navigation, Clock, ShieldCheck, Wifi, WifiOff, PackagePlus } from 'lucide-react';
 import { Badge } from './Badge';
 
 export interface NavbarProps {
@@ -17,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const navItems = [
     { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
+    { id: 'catalog-management', label: 'Manage Catalog', icon: PackagePlus },
     { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
     { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
     { id: 'offline', label: 'Offline Sync', icon: Clock },

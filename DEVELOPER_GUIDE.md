@@ -224,6 +224,14 @@ cd client && npm test
 - `scheduleValidator.test.ts`: Academic time-lock lockout algorithms.
 - `db.test.ts`: Dexie.js IndexedDB schema, outbox queue insertion, and querying via `fake-indexeddb`.
 - `Button.test.tsx` & `App.test.tsx`: React Testing Library UI component rendering.
+- `productRepository.test.ts` & `useCatalog.test.ts`: storefront persistence, online refresh, offline cache fallback, and empty-cache behavior.
+
+### 8.4 Verifying the Offline Product Catalog
+1. Run the client and open the Storefront while online. Wait for the catalog to load and confirm the "Last synchronized" time appears.
+2. In browser DevTools, open **Application → IndexedDB → MSUPakawitOfflineDB** and inspect the `stores`, `products`, and `syncMetadata` tables.
+3. In DevTools **Network**, enable **Offline**. The network badge should change to Offline and the catalog should show the "Serving from offline cache" badge while continuing to display saved products.
+4. Reload while still offline to verify the catalog is read from IndexedDB after a fresh app load. If no catalog was previously cached, the app reports that no cached storefront is available.
+5. Disable **Offline**, wait for the online indicator, then select **Refresh Catalog**. The catalog and "Last synchronized" time should update from the server.
 
 ### 8.3 Running Backend API Tests
 ```bash

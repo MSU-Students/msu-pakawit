@@ -5,6 +5,7 @@ import type {
   LocalErrandOrder,
   LocalAcademicSchedule,
   SyncQueueItem,
+  SyncMetadata,
 } from './types';
 
 export class MSUPakawitDatabase extends Dexie {
@@ -13,6 +14,7 @@ export class MSUPakawitDatabase extends Dexie {
   orders!: Table<LocalErrandOrder, string>;
   academicSchedules!: Table<LocalAcademicSchedule, string>;
   syncQueue!: Table<SyncQueueItem, number>;
+  syncMetadata!: Table<SyncMetadata, string>;
 
   constructor(databaseName: string = 'MSUPakawitOfflineDB') {
     super(databaseName);
@@ -24,6 +26,28 @@ export class MSUPakawitDatabase extends Dexie {
       academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
       syncQueue: '++id, entityType, entityId, action, status, createdAt',
     });
+
+    this.version(2)
+      .stores({
+        stores: 'id, hostStudentId, vendorOrigin, isActive, isSynced, updatedAt, syncedAt',
+        products: 'id, storeId, category, isAvailable, isActive, isSynced, updatedAt, syncedAt',
+        orders: 'id, buyerStudentId, runnerStudentId, storeId, status, isSynced, createdAt',
+        academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
+        syncQueue: '++id, entityType, entityId, action, status, createdAt',
+        syncMetadata: '&key',
+      })
+      .upgrade(async (transaction) => {
+        const syncedAt = Date.now();
+        await transaction.table('stores').toCollection().modify((store) => {
+          store.syncedAt ??= syncedAt;
+        });
+        await transaction.table('products').toCollection().modify((product) => {
+          product.description ??= '';
+          product.imageUrls ??= [];
+          product.isActive ??= true;
+          product.syncedAt ??= syncedAt;
+        });
+      });
   }
 
   /**

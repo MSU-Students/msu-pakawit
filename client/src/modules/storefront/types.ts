@@ -2,10 +2,15 @@ export interface ProductItem {
   id: string;
   storeId: string;
   name: string;
+  description: string;
+  imageUrls: string[];
   category: string;
   basePrice: number;
   markupPrice: number;
   isAvailable: boolean;
+  isActive: boolean;
+  updatedAt?: string | number | Date;
+  syncedAt?: number;
 }
 
 export interface VirtualStore {
@@ -16,8 +21,13 @@ export interface VirtualStore {
   vendorOrigin: string;
   defaultConvenienceFee: number;
   markupPercentage: number;
-  rating: number;
-  isOpen: boolean;
+  rating?: number;
+  isOpen?: boolean;
+  isActive?: boolean;
+  description?: string;
+  updatedAt?: string | number | Date;
+  syncedAt?: number;
+  products?: ProductItem[];
 }
 
 export interface PricingBreakdown {
