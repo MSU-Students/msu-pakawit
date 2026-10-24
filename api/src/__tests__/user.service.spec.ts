@@ -55,6 +55,44 @@ describe('UserService', () => {
     expect(created.preferredRole).toBe(SelectableRole.STUDENT);
   });
 
+  it.each([SelectableRole.STUDENT, SelectableRole.EMPLOYEE, SelectableRole.COURIER])(
+    'registers a public %s account without verifying courier status or creating ADMIN',
+    async (role) => {
+      const created = await service.registerPublicUser({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'correct horse battery staple',
+        role,
+      });
+
+      expect(created.role).toBe(role);
+      expect(created.preferredRole).toBe(role);
+      expect(created.isCourierVerified).toBe(false);
+      expect(await argon2.verify(created.passwordHash, 'correct horse battery staple')).toBe(true);
+      expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({
+        role,
+        preferredRole: role,
+      }));
+      expect(repository.save).not.toHaveBeenCalledWith(expect.objectContaining({ role: UserRole.ADMIN }));
+    },
+  );
+
+  it('rejects ADMIN during public registration without persisting a user', async () => {
+    await expect(
+      service.registerPublicUser({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'correct horse battery staple',
+        role: 'ADMIN' as SelectableRole,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
   it('saves a selectable role preference without changing account authorization', async () => {
     repository.findOneBy.mockResolvedValue({
       id: 'user-1',
@@ -115,6 +153,18 @@ describe('UserService', () => {
   });
 
   it('maps duplicate identifier database errors to a conflict response', async () => {
+    repository.save.mockRejectedValueOnce(
+      new QueryFailedError('INSERT', [], { code: '23505' } as any),
+    );
+    await expect(service.registerPublicUser({
+      msuIdNumber: '2026-01429',
+      username: 'amina.radiamoda',
+      fullName: 'Amina Radiamoda',
+      email: 'amina@msumain.edu.ph',
+      password: 'correct horse battery staple',
+      role: SelectableRole.STUDENT,
+    })).rejects.toBeInstanceOf(ConflictException);
+
     repository.save.mockRejectedValueOnce(
       new QueryFailedError('INSERT', [], { code: '23505' } as any),
     );

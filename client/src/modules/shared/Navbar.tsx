@@ -12,6 +12,7 @@ export interface NavbarProps {
   onOpenRoleSelector?: () => void;
   signedInUsername?: string;
   onOpenLogin?: () => void;
+  onOpenRegister?: () => void;
   onSignOut?: () => void;
 }
 
@@ -25,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenRoleSelector,
   signedInUsername,
   onOpenLogin,
+  onOpenRegister,
   onSignOut,
 }) => {
   const navItems = [
@@ -101,16 +103,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {signedInUsername}
               </button>
             ) : (
-              onOpenLogin && (
-                <button
-                  type="button"
-                  onClick={onOpenLogin}
-                  aria-label="Sign in to save role preference"
-                  className="flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-msu-gold"
-                >
-                  Sign in
-                </button>
-              )
+              <>
+                {onOpenRegister && (
+                  <button
+                    type="button"
+                    onClick={onOpenRegister}
+                    aria-label="Register a new account"
+                    className="flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-msu-gold text-slate-900 hover:bg-msu-gold-light transition-colors focus:outline-none focus:ring-2 focus:ring-msu-gold"
+                  >
+                    Register
+                  </button>
+                )}
+                {onOpenLogin && (
+                  <button
+                    type="button"
+                    onClick={onOpenLogin}
+                    aria-label="Sign in to save role preference"
+                    className="flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-white/10 border border-white/20 text-white/90 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-msu-gold"
+                  >
+                    Sign in
+                  </button>
+                )}
+              </>
             )}
 
             {isOnline ? (

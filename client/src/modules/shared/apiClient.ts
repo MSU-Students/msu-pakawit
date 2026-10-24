@@ -2,11 +2,9 @@ import { getAccessToken } from './authSession';
 import type { ApiResponse } from './types';
 
 const readViteApiBaseUrl = (): string => {
-  try {
-    return Function('return import.meta.env && import.meta.env.VITE_API_BASE_URL')() || '';
-  } catch {
-    return '';
-  }
+  return typeof __API_BASE_URL__ !== 'undefined'
+    ? __API_BASE_URL__
+    : '';
 };
 
 export class ApiClient {
@@ -43,7 +41,16 @@ export class ApiClient {
         headers: this.buildHeaders(init.headers),
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let detail = response.statusText;
+        try {
+          const errorBody = await response.json();
+          const message = errorBody?.message;
+          if (Array.isArray(message) && message.length > 0) detail = message.join(' ');
+          else if (typeof message === 'string' && message.trim()) detail = message;
+        } catch {
+          // Keep the HTTP status text when the body is not JSON.
+        }
+        throw new Error(`HTTP ${response.status}: ${detail}`);
       }
       const data = await response.json();
       return { success: true, data };

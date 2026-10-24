@@ -57,6 +57,21 @@ describe('UserController authorization', () => {
     await request(app.getHttpServer()).post('/users').send({}).expect(401);
   });
 
+  it('does not expose admin user creation through public registration fields', async () => {
+    await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'correct horse battery staple',
+        role: UserRole.ADMIN,
+      })
+      .expect(401);
+    expect(userService.createUser).not.toHaveBeenCalled();
+  });
+
   it('rejects a non-admin even if the token contains an ADMIN claim', async () => {
     jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', username: user.username, role: UserRole.ADMIN });
     userService.findById.mockResolvedValue({ ...user, role: UserRole.STUDENT });

@@ -5,6 +5,7 @@ import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
 import { RoleSelector, type SelectableRole } from './modules/shared/RoleSelector';
+import { OnboardingRegister } from './modules/auth/OnboardingRegister';
 import { apiClient } from './modules/shared/apiClient';
 import {
   clearSession,
@@ -141,6 +142,7 @@ export const App: React.FC = () => {
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(() => getSessionUser());
   const [isRoleSelectorOpen, setIsRoleSelectorOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -352,7 +354,12 @@ export const App: React.FC = () => {
         signedInUsername={sessionUser?.username}
         onOpenLogin={() => {
           setLoginError(null);
+          setIsRegisterOpen(false);
           setIsLoginOpen(true);
+        }}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
         }}
         onSignOut={handleSignOut}
       />
@@ -529,15 +536,44 @@ export const App: React.FC = () => {
               />
             </label>
             {loginError && <p className="text-xs text-rose-600">{loginError}</p>}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsLoginOpen(false)}>
-                Cancel
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsLoginOpen(false);
+                  setIsRegisterOpen(true);
+                }}
+              >
+                Create an account
               </Button>
-              <Button type="submit" variant="primary" size="sm" isLoading={isLoggingIn}>
-                Sign in
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsLoginOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" isLoading={isLoggingIn}>
+                  Sign in
+                </Button>
+              </div>
             </div>
           </form>
+        </div>
+      )}
+
+      {isRegisterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <OnboardingRegister
+              onClose={() => setIsRegisterOpen(false)}
+              onGoToSignIn={(username) => {
+                setIsRegisterOpen(false);
+                if (username) setLoginUsername(username);
+                setLoginError(null);
+                setIsLoginOpen(true);
+              }}
+            />
+          </div>
         </div>
       )}
 

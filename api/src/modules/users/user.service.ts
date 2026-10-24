@@ -12,6 +12,7 @@ import { timingSafeEqual } from 'crypto';
 import * as argon2 from 'argon2';
 import { isSelectableRole, SelectableRole, User, UserRole } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 
 export const normalizeUsername = (username: string): string => username.trim().toLowerCase();
@@ -49,6 +50,11 @@ export class UserService {
 
   async createUser(dto: CreateUserDto): Promise<User> {
     return this.saveNewUser(dto, dto.role ?? UserRole.STUDENT);
+  }
+
+  async registerPublicUser(dto: RegisterUserDto): Promise<User> {
+    const accountRole = this.toPublicAccountRole(dto.role);
+    return this.saveNewUser(dto, accountRole);
   }
 
   async createFirstAdmin(dto: Omit<CreateUserDto, 'role'>, providedSecret?: string): Promise<User> {
@@ -119,12 +125,23 @@ export class UserService {
     return this.userRepo.save(user);
   }
 
-  private async saveNewUser(dto: CreateUserDto, role: UserRole): Promise<User> {
+  private toPublicAccountRole(role: unknown): UserRole {
+    if (role === SelectableRole.STUDENT) return UserRole.STUDENT;
+    if (role === SelectableRole.EMPLOYEE) return UserRole.EMPLOYEE;
+    if (role === SelectableRole.COURIER) return UserRole.COURIER;
+    throw new BadRequestException('Registration role must be STUDENT, EMPLOYEE, or COURIER');
+  }
+
+  private async saveNewUser(
+    dto: Pick<CreateUserDto, 'msuIdNumber' | 'username' | 'fullName' | 'email' | 'password'>,
+    role: UserRole,
+  ): Promise<User> {
     const user = this.userRepo.create({
       ...this.userFields(dto),
       passwordHash: await argon2.hash(dto.password, { type: argon2.argon2id }),
       role,
       preferredRole: isSelectableRole(role) ? role : SelectableRole.STUDENT,
+      isCourierVerified: false,
     });
     return this.saveWithConflictHandling(this.userRepo, user);
   }

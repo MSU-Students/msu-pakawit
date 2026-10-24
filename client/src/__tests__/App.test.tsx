@@ -104,6 +104,18 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
     expect(window.localStorage.getItem(SESSION_USER_STORAGE_KEY)).toContain('"role":"STUDENT"');
   });
 
+  it('opens registration from the authentication interface without replacing sign-in', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Register a new account/i }));
+    expect(screen.getByText(/Create your account/i)).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: /Account details/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Sign in to save role preference/i }));
+    expect(screen.getByRole('form', { name: /Sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create an account/i })).toBeInTheDocument();
+  });
+
   it('restores the profile preference after login without using an ADMIN view', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
