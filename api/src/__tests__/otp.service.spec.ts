@@ -12,6 +12,7 @@ describe('OtpService (Drop-Zone Handoff Security)', () => {
     mockOtpRepo = {
       create: jest.fn().mockImplementation((dto) => dto),
       save: jest.fn().mockImplementation((entity) => Promise.resolve(entity)),
+      find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
     };
 

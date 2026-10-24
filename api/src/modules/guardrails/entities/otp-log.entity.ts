@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 export enum OTPStatus {
@@ -20,7 +21,7 @@ export class OTPLog {
   @Column()
   errandId: string;
 
-  @Column({ length: 4 })
+  @Column({ type: 'varchar', length: 255 })
   otpCode: string;
 
   @Column({
@@ -33,9 +34,21 @@ export class OTPLog {
   @Column({ type: 'int', default: 0 })
   attempts: number;
 
-  @Column({ type: 'timestamp' })
-  expiresAt: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  expiresAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastAttemptAt: Date | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  lastFailureReason: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verifiedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
