@@ -21,9 +21,6 @@ export const AcademicScheduleGuard: React.FC<AcademicScheduleGuardProps> = ({
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const guardStatus = isCourierLockedBySchedule(schedules, simulatedTime);
 
-
-
-
   return (
     <div className="space-y-6">
       <div>
