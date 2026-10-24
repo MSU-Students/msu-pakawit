@@ -32,6 +32,19 @@ describe('Dexie.js Offline Database & Outbox Queue', () => {
     expect(store?.name).toBe('Campus Corner');
   });
 
+  it('saves and retrieves profile images by local profile ID', async () => {
+    const image = 'data:image/png;base64,cHJvZmlsZQ==';
+
+    await testDb.saveProfileImage(image, 'local-demo-profile');
+
+    await expect(testDb.getProfileImage('local-demo-profile')).resolves.toBe(image);
+    await expect(testDb.getProfileImage('another-local-profile')).resolves.toBeNull();
+
+    await testDb.deleteProfileImage('local-demo-profile');
+
+    await expect(testDb.getProfileImage('local-demo-profile')).resolves.toBeNull();
+  });
+
   it('queues outbox mutation items for offline sync', async () => {
     await testDb.queueSync({
       entityType: 'STORE',
