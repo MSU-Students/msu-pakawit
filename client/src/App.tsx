@@ -13,7 +13,7 @@ import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
-import type { VirtualStore, ProductItem } from './modules/storefront/types';
+import type { VirtualStore, ProductItem, OrderSubmission } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
 
@@ -167,18 +167,18 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
-  const handlePlaceOrder = async (orderData: any) => {
+  const handlePlaceOrder = async (orderData: OrderSubmission) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTask: ErrandTask = {
       id: newTaskId,
       storeName: mockStore.name,
       vendorOrigin: mockStore.vendorOrigin,
       dropZone: orderData.dropZone,
-      itemCount: orderData.items.length,
+      itemCount: orderData.items.reduce((total, item) => total + item.quantity, 0),
       totalAmount: orderData.totalAmount,
       convenienceFee: orderData.convenienceFee,
       status: 'PENDING',
-      buyerName: 'Current Student User',
+      buyerName: orderData.customerName,
       createdAt: Date.now(),
     };
 
@@ -186,6 +186,9 @@ export const App: React.FC = () => {
     await db.orders.put({
       id: newTaskId,
       buyerStudentId: '2023-99999',
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone,
+      deliveryAddress: orderData.deliveryAddress,
       storeId: mockStore.id,
       items: orderData.items,
       totalProductCost: orderData.totalProductCost,
@@ -204,7 +207,13 @@ export const App: React.FC = () => {
       entityType: 'ERRAND_ORDER',
       entityId: newTaskId,
       action: 'CREATE',
-      payload: newTask,
+      payload: {
+        ...newTask,
+        customerPhone: orderData.customerPhone,
+        deliveryAddress: orderData.deliveryAddress,
+        items: orderData.items,
+        totalProductCost: orderData.totalProductCost,
+      },
     });
 
     setTasks((prev) => [newTask, ...prev]);
