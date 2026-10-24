@@ -9,7 +9,7 @@ export const getDatabaseConfig = (): TypeOrmModuleOptions => {
     password: process.env.DATABASE_PASSWORD || 'postgres',
     database: process.env.DATABASE_NAME || 'msu_pakawit_db',
     autoLoadEntities: true,
-    synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
+    synchronize: false,
     logging: process.env.NODE_ENV === 'development',
   };
 };

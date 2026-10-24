@@ -148,6 +148,37 @@ docker compose up --build
 - **Swagger OpenAPI Documentation**: [http://localhost:5000/api/docs](http://localhost:5000/api/docs)
 - **Health Check Endpoint**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
 
+### 4.5 Database schema migrations
+
+The API does not synchronize entity changes into the database automatically. Database schema changes must be applied explicitly with the TypeORM migration commands. The migration history starts with `CreateInitialSchema1792675000000`, a baseline for a fresh database, followed by `AddErrandOrderItems1792676000000`.
+
+#### Fresh database
+
+For a new, empty PostgreSQL database, first start PostgreSQL, then review and apply the pending migrations from the repository root:
+```bash
+npm run migration:show --workspace=api
+npm run migration:run --workspace=api
+```
+
+The baseline creates the pre-order-extension entity schema; the later migration adds order-item tables and customer/order fields. The commands above have not been run as part of this change. Docker Compose uses PostgreSQL 16, which supplies `gen_random_uuid()` without an extension. The API does not run migrations automatically at startup.
+
+#### Existing database adoption
+
+**Never run the baseline against an existing schema.** Before adoption, make and verify a backup, inspect the actual database catalog, and compare every table, column/type/nullability/default, enum, primary/foreign key, unique constraint, and index with the baseline. Repository entities describe the intended schema but cannot prove the current schema or its history.
+
+Only after that comparison confirms the existing schema is equivalent should a separately reviewed adoption procedure mark the baseline as already applied. Use a temporary migration data source that includes **only** the baseline and TypeORM's fake migration mode; do not fake-run using the normal data source, because that could mark later migrations as applied too. Then restore the normal data source, inspect pending migrations, and run only the newer migrations after reviewing their effects. Do not delete/recreate volumes or database objects to force adoption.
+
+`migration:revert` is available for later migrations. The baseline deliberately refuses automatic rollback because dropping the initial tables would drop application data.
+
+For production, review and back up the target database and use the corresponding compiled CLI scripts:
+```bash
+npm run migration:show:prod --workspace=api
+npm run migration:run:prod --workspace=api
+npm run migration:revert:prod --workspace=api
+```
+
+These commands are documentation only; no migration or database operation was performed in this change.
+
 ---
 
 ## 5. Offline-First Sync Protocol (Dexie.js & Outbox Pattern)

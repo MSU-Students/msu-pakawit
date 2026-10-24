@@ -7,7 +7,7 @@ Initialize backend user and authentication modules. `UserModule` owns user accou
 - The API is a NestJS application using TypeORM and PostgreSQL.
 - `AppModule` imports the existing domain modules; there is no authentication or user-management module yet.
 - `User` is currently defined in `modules/guardrails/entities/user.entity.ts` and contains unique `msuIdNumber` and `email` fields, but no username or credential hash. Guardrails entities refer to it directly.
-- The `users` table is empty during Sprint 0. Use TypeORM `synchronize=true` for this sprint's schema changes; do not add a migration script.
+- The `users` table was empty during the original Sprint 0 auth work. Entity synchronization is now disabled; apply schema changes through reviewed TypeORM migrations.
 - Backend tests use Jest and mocked TypeORM repositories.
 
 ## Scope and Decisions
@@ -24,7 +24,7 @@ Initialize backend user and authentication modules. `UserModule` owns user accou
 ## Implementation Tasks
 1. **Establish user-module ownership and Sprint 0 schema setup**
    - Move `User` into `modules/users/entities/`, create `UserModule` and `UserService`, and update `AppModule`, guardrails imports/relations, tests, and developer documentation to reflect the new ownership.
-   - Add username/password-hash columns and username uniqueness to the entity. Since the `users` table is empty in Sprint 0, rely on `synchronize=true`; do not create a TypeORM migration script.
+   - Add username/password-hash columns and username uniqueness to the entity. Do not rely on automatic synchronization; schema changes require a reviewed migration.
    - Apply the same username normalization and format validation at the DTO and persistence boundaries. Keep these rules independent of user type and role.
    - Login must fail safely for accounts without provisioned credentials.
 
@@ -59,7 +59,7 @@ Initialize backend user and authentication modules. `UserModule` owns user accou
 - Invalid credentials and inactive accounts return the same generic `401` response.
 - Passwords are persisted only as Argon2id hashes; plaintext passwords and hashes never appear in logs or responses.
 - User profile responses contain no credential fields.
-- During Sprint 0, the empty `users` table is created or updated using `synchronize=true`; no TypeORM migration script is added.
+- The original Sprint 0 auth implementation used synchronization for an empty `users` table. Synchronization is now disabled and future schema changes must be migration-managed.
 - Usernames are free-form within general format constraints and are not coupled to a current or future user type.
 - DTO validation rejects missing or empty credentials, and focused tests plus the API build pass.
 - Existing guardrails behavior and user relationships remain intact after the entity move.
