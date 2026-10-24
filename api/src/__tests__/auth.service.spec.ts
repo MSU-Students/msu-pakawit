@@ -3,12 +3,12 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { AuthService } from '../modules/auth/auth.service';
-import { UserRole } from '../modules/users/entities/user.entity';
+import { SelectableRole, UserRole } from '../modules/users/entities/user.entity';
 import { UserService } from '../modules/users/user.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userService: { findByUsernameForAuth: jest.Mock };
+  let userService: { findByUsernameForAuth: jest.Mock; registerPublicUser: jest.Mock };
   let jwtService: { signAsync: jest.Mock };
   let user: any;
 
@@ -20,9 +20,14 @@ describe('AuthService', () => {
       fullName: 'Amina Radiamoda',
       email: 'amina@msumain.edu.ph',
       role: UserRole.STUDENT,
+      preferredRole: SelectableRole.EMPLOYEE,
+      isCourierVerified: false,
       isActive: true,
     };
-    userService = { findByUsernameForAuth: jest.fn().mockResolvedValue(user) };
+    userService = {
+      findByUsernameForAuth: jest.fn().mockResolvedValue(user),
+      registerPublicUser: jest.fn(),
+    };
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-access-token') };
 
     service = new AuthService(
@@ -30,6 +35,39 @@ describe('AuthService', () => {
       jwtService as unknown as JwtService,
       { get: jest.fn().mockReturnValue(3600) } as unknown as ConfigService,
     );
+  });
+
+  it('registers an account and returns the persisted role without a session or password hash', async () => {
+    const created = {
+      ...user,
+      role: UserRole.COURIER,
+      preferredRole: SelectableRole.COURIER,
+      isCourierVerified: false,
+    };
+    userService.registerPublicUser.mockResolvedValue(created);
+
+    const result = await service.register({
+      msuIdNumber: '2026-01429',
+      username: 'amina.radiamoda',
+      fullName: 'Amina Radiamoda',
+      email: 'amina@msumain.edu.ph',
+      password: 'correct horse battery staple',
+      role: SelectableRole.COURIER,
+    });
+
+    expect(userService.registerPublicUser).toHaveBeenCalledWith(expect.objectContaining({
+      role: SelectableRole.COURIER,
+    }));
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: 'user-1',
+      username: 'amina.radiamoda',
+      role: UserRole.COURIER,
+      preferredRole: SelectableRole.COURIER,
+      isCourierVerified: false,
+    });
+    expect(JSON.stringify(result)).not.toContain(user.passwordHash);
+    expect(JSON.stringify(result)).not.toContain('correct horse battery staple');
   });
 
   it('verifies the password, signs a token, and returns only the safe profile', async () => {
@@ -45,7 +83,13 @@ describe('AuthService', () => {
       accessToken: 'signed-access-token',
       tokenType: 'Bearer',
       expiresIn: 3600,
-      user: { id: 'user-1', username: 'amina.radiamoda', fullName: 'Amina Radiamoda', role: UserRole.STUDENT },
+      user: {
+        id: 'user-1',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        role: UserRole.STUDENT,
+        preferredRole: SelectableRole.EMPLOYEE,
+      },
     });
     expect(JSON.stringify(result)).not.toContain(user.passwordHash);
     expect(JSON.stringify(result)).not.toContain('correct horse battery staple');

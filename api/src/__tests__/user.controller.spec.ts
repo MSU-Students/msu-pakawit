@@ -18,6 +18,7 @@ describe('UserController authorization', () => {
     fullName: 'Amina Radiamoda',
     email: 'amina@msumain.edu.ph',
     role: UserRole.ADMIN,
+    preferredRole: UserRole.STUDENT,
     isCourierVerified: false,
     isActive: true,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -54,6 +55,21 @@ describe('UserController authorization', () => {
 
   it('rejects account provisioning without authentication', async () => {
     await request(app.getHttpServer()).post('/users').send({}).expect(401);
+  });
+
+  it('does not expose admin user creation through public registration fields', async () => {
+    await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        msuIdNumber: '2026-01429',
+        username: 'amina.radiamoda',
+        fullName: 'Amina Radiamoda',
+        email: 'amina@msumain.edu.ph',
+        password: 'correct horse battery staple',
+        role: UserRole.ADMIN,
+      })
+      .expect(401);
+    expect(userService.createUser).not.toHaveBeenCalled();
   });
 
   it('rejects a non-admin even if the token contains an ADMIN claim', async () => {

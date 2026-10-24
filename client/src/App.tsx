@@ -1,9 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './modules/offline/db';
 import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
+import { RoleSelector, type SelectableRole } from './modules/shared/RoleSelector';
+import { OnboardingRegister } from './modules/auth/OnboardingRegister';
+import { apiClient } from './modules/shared/apiClient';
+import {
+  clearSession,
+  getAccessToken,
+  getSessionUser,
+  setSession,
+  type SessionUser,
+} from './modules/shared/authSession';
+import {
+  readStoredRolePreference,
+  resolveSelectableRole,
+  writeStoredRolePreference,
+} from './modules/shared/rolePreference';
 import { StoreCatalog } from './modules/storefront/StoreCatalog';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
@@ -99,13 +114,46 @@ const mockSchedules: ScheduleBlock[] = [
   },
 ];
 
+interface AuthProfile {
+  id: string;
+  username: string;
+  fullName?: string;
+  role?: string;
+  preferredRole?: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  user: AuthProfile;
+}
+
+const applyRoleTab = (
+  role: SelectableRole,
+  setTab: React.Dispatch<React.SetStateAction<string>>,
+) => {
+  if (role === 'COURIER') {
+    setTab('dispatch');
+  } else {
+    setTab((current) => (current === 'dispatch' ? 'storefront' : current));
+  }
+};
 const LOCAL_DEMO_PROFILE_ID = 'local-demo-profile';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('storefront');
+  const [activeRole, setActiveRole] = useState<SelectableRole>(() => readStoredRolePreference() ?? 'STUDENT');
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(() => getSessionUser());
+  const [isRoleSelectorOpen, setIsRoleSelectorOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => (readStoredRolePreference() === 'COURIER' ? 'dispatch' : 'storefront'));
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
+  const preferenceSyncGeneration = useRef(0);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
 
@@ -166,6 +214,79 @@ export const App: React.FC = () => {
     syncEngine.initAutoSync();
     return () => syncEngine.cleanup();
   }, []);
+
+  useEffect(() => {
+    const restoreProfile = async () => {
+      if (!getAccessToken()) return;
+      const generation = preferenceSyncGeneration.current;
+      const response = await apiClient.get<AuthProfile>('/users/me');
+      if (generation !== preferenceSyncGeneration.current) return;
+      if (!response.success || !response.data) {
+        if (response.error?.includes('HTTP 401')) {
+          clearSession();
+          setSessionUser(null);
+        }
+        return;
+      }
+
+      const profile = response.data;
+      setSession(getAccessToken() || '', profile);
+      setSessionUser(profile);
+      const restoredRole = resolveSelectableRole(profile.preferredRole);
+      writeStoredRolePreference(restoredRole);
+      setActiveRole(restoredRole);
+      applyRoleTab(restoredRole, setActiveTab);
+    };
+
+    void restoreProfile();
+  }, []);
+
+  const handleRoleChange = async (role: SelectableRole) => {
+    preferenceSyncGeneration.current += 1;
+    const generation = preferenceSyncGeneration.current;
+    setActiveRole(role);
+    writeStoredRolePreference(role);
+    applyRoleTab(role, setActiveTab);
+    setIsRoleSelectorOpen(false);
+
+    if (!getAccessToken()) return;
+    const response = await apiClient.patch<AuthProfile>('/users/me/preferred-role', { preferredRole: role });
+    if (generation !== preferenceSyncGeneration.current) return;
+    if (response.success && response.data) {
+      setSessionUser(response.data);
+      setSession(getAccessToken() || '', response.data);
+    }
+  };
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError(null);
+    const response = await apiClient.post<LoginResponse>('/auth/login', {
+      username: loginUsername,
+      password: loginPassword,
+    });
+    setIsLoggingIn(false);
+
+    if (!response.success || !response.data?.accessToken || !response.data.user) {
+      setLoginError(response.error || 'Unable to sign in');
+      return;
+    }
+
+    setSession(response.data.accessToken, response.data.user);
+    setSessionUser(response.data.user);
+    const restoredRole = resolveSelectableRole(response.data.user.preferredRole, readStoredRolePreference());
+    writeStoredRolePreference(restoredRole);
+    setActiveRole(restoredRole);
+    applyRoleTab(restoredRole, setActiveTab);
+    setIsLoginOpen(false);
+    setLoginPassword('');
+  };
+
+  const handleSignOut = () => {
+    clearSession();
+    setSessionUser(null);
+  };
 
   const handlePlaceOrder = async (orderData: any) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -262,6 +383,20 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         pendingSyncCount={pendingSyncQueue.length}
+        activeRole={activeRole}
+        accountRole={sessionUser?.role}
+        onOpenRoleSelector={() => setIsRoleSelectorOpen(true)}
+        signedInUsername={sessionUser?.username}
+        onOpenLogin={() => {
+          setLoginError(null);
+          setIsRegisterOpen(false);
+          setIsLoginOpen(true);
+        }}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
+        }}
+        onSignOut={handleSignOut}
       />
 
       <OfflineBanner
@@ -325,6 +460,7 @@ export const App: React.FC = () => {
           <ErrandFeed
             tasks={tasks}
             isLockedBySchedule={isLocked}
+            userRole={activeRole}
             onAcceptTask={handleAcceptTask}
             onUpdateStatus={handleUpdateStatus}
           />
@@ -401,6 +537,97 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      {/* Role Selector Modal */}
+      {isRoleSelectorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <RoleSelector
+              activeRole={activeRole}
+              accountRole={sessionUser?.role}
+              onSelectRole={handleRoleChange}
+              onClose={() => setIsRoleSelectorOpen(false)}
+              isModal
+            />
+          </div>
+        </div>
+      )}
+
+      {isLoginOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <form
+            onSubmit={handleLogin}
+            className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4"
+            aria-label="Sign in"
+          >
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Sign in</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Restore your saved role preference from your account profile.
+              </p>
+            </div>
+            <label className="block text-xs font-semibold text-slate-700">
+              Username
+              <input
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                value={loginUsername}
+                onChange={(event) => setLoginUsername(event.target.value)}
+                autoComplete="username"
+                required
+              />
+            </label>
+            <label className="block text-xs font-semibold text-slate-700">
+              Password
+              <input
+                type="password"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </label>
+            {loginError && <p className="text-xs text-rose-600">{loginError}</p>}
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsLoginOpen(false);
+                  setIsRegisterOpen(true);
+                }}
+              >
+                Create an account
+              </Button>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsLoginOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" isLoading={isLoggingIn}>
+                  Sign in
+                </Button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {isRegisterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <OnboardingRegister
+              onClose={() => setIsRegisterOpen(false)}
+              onGoToSignIn={(username) => {
+                setIsRegisterOpen(false);
+                if (username) setLoginUsername(username);
+                setLoginError(null);
+                setIsLoginOpen(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* OTP Modal */}
       {activeOtpModalErrandId && (
         <OTPVerificationModal
@@ -415,10 +642,11 @@ export const App: React.FC = () => {
       <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800 text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MSU Pakawit © 2026 • Mindanao State University Marawi Campus</span>
-          <span className="text-slate-500">Sprint 0: Architecture, Setup & Design Standards (5 Scrum Teams)</span>
+          <span className="text-slate-500">Sprint 0: Architecture, Setup & Design Standards (5 Scrum Teams) • Sprint 0 Inception</span>
         </div>
       </footer>
     </div>
   );
 };
+
 export default App;

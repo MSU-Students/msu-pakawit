@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -9,8 +10,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { timingSafeEqual } from 'crypto';
 import * as argon2 from 'argon2';
-import { User, UserRole } from './entities/user.entity';
+import { isSelectableRole, SelectableRole, User, UserRole } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 
 export const normalizeUsername = (username: string): string => username.trim().toLowerCase();
@@ -50,6 +52,11 @@ export class UserService {
     return this.saveNewUser(dto, dto.role ?? UserRole.STUDENT);
   }
 
+  async registerPublicUser(dto: RegisterUserDto): Promise<User> {
+    const accountRole = this.toPublicAccountRole(dto.role);
+    return this.saveNewUser(dto, accountRole);
+  }
+
   async createFirstAdmin(dto: Omit<CreateUserDto, 'role'>, providedSecret?: string): Promise<User> {
     const configuredSecret = this.config.get<string>('BOOTSTRAP_ADMIN_SECRET');
     if (!configuredSecret || !providedSecret || !this.secretsMatch(configuredSecret, providedSecret)) {
@@ -66,6 +73,7 @@ export class UserService {
         ...this.userFields(dto),
         passwordHash,
         role: UserRole.ADMIN,
+        preferredRole: SelectableRole.STUDENT,
       });
       return this.saveWithConflictHandling(repository, user);
     });
@@ -78,6 +86,17 @@ export class UserService {
     if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
     if (dto.email !== undefined) user.email = dto.email.trim().toLowerCase();
     return this.saveWithConflictHandling(this.userRepo, user);
+  }
+
+  async updatePreferredRole(id: string, preferredRole: SelectableRole): Promise<User> {
+    if (!isSelectableRole(preferredRole)) {
+      throw new BadRequestException('Role preference must be STUDENT, EMPLOYEE, or COURIER');
+    }
+
+    const user = await this.userRepo.findOneBy({ id });
+    if (!user) throw new NotFoundException('User not found');
+    user.preferredRole = preferredRole;
+    return this.userRepo.save(user);
   }
 
   async assignRole(id: string, role: UserRole): Promise<User> {
@@ -106,11 +125,23 @@ export class UserService {
     return this.userRepo.save(user);
   }
 
-  private async saveNewUser(dto: CreateUserDto, role: UserRole): Promise<User> {
+  private toPublicAccountRole(role: unknown): UserRole {
+    if (role === SelectableRole.STUDENT) return UserRole.STUDENT;
+    if (role === SelectableRole.EMPLOYEE) return UserRole.EMPLOYEE;
+    if (role === SelectableRole.COURIER) return UserRole.COURIER;
+    throw new BadRequestException('Registration role must be STUDENT, EMPLOYEE, or COURIER');
+  }
+
+  private async saveNewUser(
+    dto: Pick<CreateUserDto, 'msuIdNumber' | 'username' | 'fullName' | 'email' | 'password'>,
+    role: UserRole,
+  ): Promise<User> {
     const user = this.userRepo.create({
       ...this.userFields(dto),
       passwordHash: await argon2.hash(dto.password, { type: argon2.argon2id }),
       role,
+      preferredRole: isSelectableRole(role) ? role : SelectableRole.STUDENT,
+      isCourierVerified: false,
     });
     return this.saveWithConflictHandling(this.userRepo, user);
   }

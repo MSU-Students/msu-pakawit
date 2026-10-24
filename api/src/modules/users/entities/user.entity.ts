@@ -15,6 +15,17 @@ export enum UserRole {
   ADMIN = 'ADMIN',
 }
 
+export enum SelectableRole {
+  STUDENT = 'STUDENT',
+  EMPLOYEE = 'EMPLOYEE',
+  COURIER = 'COURIER',
+}
+
+export const SELECTABLE_ROLES = Object.values(SelectableRole);
+
+export const isSelectableRole = (role: unknown): role is SelectableRole =>
+  typeof role === 'string' && (SELECTABLE_ROLES as string[]).includes(role);
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -41,6 +52,13 @@ export class User {
     default: UserRole.STUDENT,
   })
   role: UserRole;
+
+  @Column({
+    type: 'varchar',
+    length: 16,
+    default: SelectableRole.STUDENT,
+  })
+  preferredRole: SelectableRole;
 
   @Column({ default: false })
   isCourierVerified: boolean;

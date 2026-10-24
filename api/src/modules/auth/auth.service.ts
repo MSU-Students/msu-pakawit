@@ -3,8 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import * as argon2 from 'argon2';
+import { isSelectableRole, SelectableRole } from '../users/entities/user.entity';
+import { toUserResponse } from '../users/user-response';
 import { UserService } from '../users/user.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterUserDto } from '../users/dto/register-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +18,11 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  async register(dto: RegisterUserDto) {
+    const user = await this.userService.registerPublicUser(dto);
+    return toUserResponse(user);
+  }
 
   async login(dto: LoginDto) {
     const user = await this.userService.findByUsernameForAuth(dto.username);
@@ -44,6 +52,7 @@ export class AuthService {
         username: user.username,
         fullName: user.fullName,
         role: user.role,
+        preferredRole: isSelectableRole(user.preferredRole) ? user.preferredRole : SelectableRole.STUDENT,
       },
     };
   }
