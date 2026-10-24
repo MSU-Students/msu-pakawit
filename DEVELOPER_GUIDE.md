@@ -196,11 +196,23 @@ To protect academic performance, MSU Pakawit enforces strict guardrails:
 
 ## 7. Campus Drop-Zone 4-Digit OTP Protocol
 
-To guarantee physical handoff security without requiring payment gateways:
-1. When an order is placed, a unique **4-digit OTP** is generated for the buyer.
-2. The student runner picks up items from the vendor and brings them to designated campus drop hubs (e.g. *Science Complex Hub*, *Kasadpan Hall Runner Point*).
-3. The runner enters the 4-digit code provided by the buyer into the OTP Verification Modal.
-4. The system validates the OTP against the backend/local store, records the successful handoff in `OTPLog`, and marks the errand as `COMPLETED`.
+This protocol defines the requirements for confirming a physical handoff without requiring a payment gateway.
+
+### Handoff flow
+1. When an errand is ready for delivery, generate a unique **4-digit OTP** associated with that errand. The code is valid for five minutes.
+2. Provide the OTP to the recipient before or at delivery using a notification method supported by the project. The notification channel is implementation-dependent; SMTP is not required.
+3. The courier asks the recipient for the code and enters it in the application to confirm the handoff.
+4. The backend checks that the code belongs to the errand, matches, is unexpired, unused, and within the failed-attempt limit. Frontend checks alone must never authorize completion.
+5. Only after successful backend validation may the errand become `COMPLETED`. Save the verification timestamp and result as delivery proof linked to the errand.
+
+### Failure handling and security
+- Reject an incorrect, expired, previously used, or otherwise inactive code; an unsuccessful verification must not complete the errand.
+- Store a secure representation of the OTP, not its plaintext value. Expire replaced codes and prevent successful codes from being reused.
+- Limit failed attempts to prevent repeated guessing. Record each failed verification with its timestamp and result details, such as `INVALID_OTP`, `EXPIRED_OTP`, or `MAX_ATTEMPTS_REACHED`.
+- Keep OTP records and delivery proof associated with the specific errand. A verification for one transaction must not authorize another.
+- Enforce all validation and completion rules on the backend, including courier authorization. Repeated completion requests must not bypass verification or create duplicate proof.
+
+No SMTP environment variables (such as `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, or `SMTP_FROM`) are required. OTP delivery must follow the project's actual notification implementation.
 
 ---
 
