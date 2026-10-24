@@ -8,23 +8,6 @@ export interface ProductItem {
   isAvailable: boolean;
 }
 
-export interface OrderSubmission {
-  storeId: string;
-  customerName: string;
-  customerPhone: string;
-  deliveryAddress: string;
-  dropZone: string;
-  items: Array<{
-    productId: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
-  totalProductCost: number;
-  convenienceFee: number;
-  totalAmount: number;
-}
-
 export interface VirtualStore {
   id: string;
   name: string;

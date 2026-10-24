@@ -42,9 +42,6 @@ export interface LocalProduct {
 export interface LocalErrandOrder {
   id: string;
   buyerStudentId: string;
-  customerName: string;
-  customerPhone: string;
-  deliveryAddress: string;
   runnerStudentId?: string;
   storeId: string;
   items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
