@@ -121,11 +121,18 @@ Key environment variables:
 - `JWT_SECRET` — development signing key (at least 32 characters; use a strong secret outside local development)
 - `JWT_ACCESS_TOKEN_TTL_SECONDS=3600` — access-token lifetime
 - `BOOTSTRAP_ADMIN_SECRET` — one-time local admin bootstrap secret; unset it after creating the first admin
+- `CLIENT_URL=http://localhost:5173` — client URL used in email verification links
+- `EMAIL_VERIFICATION_TOKEN_TTL_SECONDS=86400` — lifetime of one-time email verification links
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` — outbound email settings; SMTP credentials may be omitted only when the SMTP server accepts unauthenticated delivery
 - `VITE_API_BASE_URL=http://localhost:5000/api` — Frontend API Endpoint
 
 Usernames are case-insensitive and normalized to lowercase. They must be 3-32 characters and contain only letters, digits, periods, underscores, or hyphens; this format does not depend on a user's role or account type. Passwords are stored as Argon2id hashes.
 
-On an empty Sprint 0 database, create the first administrator once with `POST /api/users/bootstrap-admin`, supplying the configured `BOOTSTRAP_ADMIN_SECRET` in the `x-bootstrap-secret` header. The endpoint is unavailable after any user exists. Remove the bootstrap secret from the environment after use. Administrators can then provision users through `POST /api/users`; protected routes use bearer access tokens issued by `POST /api/auth/login`.
+Self-service registration is available at `POST /api/auth/register`. It requires MSU ID number, username, full name, email, and a password of at least 12 characters. Configure SMTP before registering users. The client verification link calls `POST /api/auth/verify-email`; the token is stored only as a SHA-256 hash, expires after the configured interval, and can be used once. Unverified accounts cannot sign in.
+
+In production, the API applies pending TypeORM migrations during startup. The database user therefore needs permission to alter the `users` table and create/update the TypeORM migrations table.
+
+On an empty database, create the first administrator once with `POST /api/users/bootstrap-admin`, supplying the configured `BOOTSTRAP_ADMIN_SECRET` in the `x-bootstrap-secret` header. The endpoint is unavailable after any user exists. Remove the bootstrap secret from the environment after use. Administrators can then provision users through `POST /api/users`; protected routes use bearer access tokens issued by `POST /api/auth/login`.
 
 ### 4.4 Running Development Servers
 

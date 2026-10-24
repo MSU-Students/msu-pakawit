@@ -35,6 +35,15 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ default: true })
+  emailVerified: boolean;
+
+  @Column({ nullable: true, select: false })
+  emailVerificationTokenHash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true, select: false })
+  emailVerificationExpiresAt: Date | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,

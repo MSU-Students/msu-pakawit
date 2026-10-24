@@ -13,6 +13,7 @@ import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { RegistrationPage } from './modules/auth/RegistrationPage';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -103,6 +104,10 @@ const LOCAL_DEMO_PROFILE_ID = 'local-demo-profile';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [verificationToken, setVerificationToken] = useState(
+    () => new URLSearchParams(window.location.search).get('verify-email'),
+  );
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
@@ -261,19 +266,33 @@ export const App: React.FC = () => {
         isOnline={!isSimulatedOffline}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onRegister={() => setShowRegistration(true)}
         pendingSyncCount={pendingSyncQueue.length}
       />
 
-      <OfflineBanner
-        isOnline={!isSimulatedOffline}
-        isSyncing={isSyncing}
-        pendingCount={pendingSyncQueue.length}
-        onSyncNow={handleSyncNow}
-        onToggleSimulatedOffline={() => setIsSimulatedOffline(!isSimulatedOffline)}
-        isSimulatedOffline={isSimulatedOffline}
-      />
+      {showRegistration || verificationToken ? (
+        <RegistrationPage
+          verificationToken={verificationToken}
+          onBack={() => {
+            setShowRegistration(false);
+            setVerificationToken(null);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('verify-email');
+            window.history.replaceState(null, '', url);
+          }}
+        />
+      ) : (
+        <>
+          <OfflineBanner
+            isOnline={!isSimulatedOffline}
+            isSyncing={isSyncing}
+            pendingCount={pendingSyncQueue.length}
+            onSyncNow={handleSyncNow}
+            onToggleSimulatedOffline={() => setIsSimulatedOffline(!isSimulatedOffline)}
+            isSimulatedOffline={isSimulatedOffline}
+          />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Domain Tab Switcher for Sprint 0 Showcase */}
         <div className="flex sm:hidden overflow-x-auto gap-2 pb-3 mb-4">
           <Button
@@ -399,7 +418,9 @@ export const App: React.FC = () => {
             </Card>
           </div>
         )}
-      </main>
+          </main>
+        </>
+      )}
 
       {/* OTP Modal */}
       {activeOtpModalErrandId && (

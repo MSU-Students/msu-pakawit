@@ -20,6 +20,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+   //to lessen distraction since the baseUrl is set to the root of the project, we can ignore the deprecation warning for now - Hontiveros
+    "ignoreDeprecations": "6.0",
+
+
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {
