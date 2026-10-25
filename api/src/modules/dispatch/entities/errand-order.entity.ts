@@ -51,6 +51,12 @@ export class ErrandOrder {
   })
   status: ErrandOrderStatus;
 
+  @Column({ type: 'uuid', nullable: true })
+  handoffOtpLogId: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

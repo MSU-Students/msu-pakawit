@@ -24,6 +24,9 @@ export class OTPLog {
   @Column({ type: 'varchar', length: 255 })
   otpCode: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  encryptedOtp: string;
+
   @Column({
     type: 'enum',
     enum: OTPStatus,
@@ -45,6 +48,9 @@ export class OTPLog {
 
   @Column({ type: 'timestamp', nullable: true })
   verifiedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  verifiedByCourierStudentId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

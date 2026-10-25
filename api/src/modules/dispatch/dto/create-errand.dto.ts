@@ -2,11 +2,6 @@ import { IsString, IsNotEmpty, IsNumber, IsArray, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateErrandDto {
-  @ApiProperty({ example: '2023-01429' })
-  @IsString()
-  @IsNotEmpty()
-  buyerStudentId: string;
-
   @ApiProperty({ example: 'store-uuid' })
   @IsString()
   @IsNotEmpty()

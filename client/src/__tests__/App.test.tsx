@@ -14,6 +14,18 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
     expect(screen.getByText(/Sprint 0 Inception/i)).toBeInTheDocument();
   });
 
+  it('requires recipient OTP input and does not complete a local demo delivery', async () => {
+    render(<App />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dispatch' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Handoff Successful' }));
+
+    fireEvent.change(screen.getByLabelText('Recipient OTP'), { target: { value: '7429' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Handoff Successful' })[1]);
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/not connected to the authenticated API/i);
+    expect(screen.getByText('In Transit to Hub')).toBeInTheDocument();
+  });
+
   it('keeps a saved profile image after the app is refreshed', async () => {
     const { unmount } = render(<App />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Profile' })[1]);
