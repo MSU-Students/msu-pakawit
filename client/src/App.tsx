@@ -5,6 +5,8 @@ import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
 import { StoreCatalog } from './modules/storefront/StoreCatalog';
+import { ProductManagement } from './modules/storefront/ProductManagement';
+import { storefrontApi } from './modules/storefront/storefrontApi';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
 import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal';
@@ -35,37 +37,49 @@ const mockProducts: ProductItem[] = [
     id: 'prod-yellow-pad',
     storeId: 'store-commercial-center-01',
     name: 'Yellow Pad Paper (80 leaves)',
+    description: '',
+    imageUrls: [],
     category: 'School Supplies',
     basePrice: 45.0,
     markupPrice: 49.5,
     isAvailable: true,
+    isActive: true,
   },
   {
     id: 'prod-pilot-g2',
     storeId: 'store-commercial-center-01',
     name: 'Pilot G2 Gel Pen 0.5 Black',
+    description: '',
+    imageUrls: [],
     category: 'School Supplies',
     basePrice: 65.0,
     markupPrice: 71.5,
     isAvailable: true,
+    isActive: true,
   },
   {
     id: 'prod-pater-chicken',
     storeId: 'store-commercial-center-01',
     name: 'Traditional Chicken Pater (Spicy Palapa)',
+    description: '',
+    imageUrls: [],
     category: 'Campus Food',
     basePrice: 50.0,
     markupPrice: 55.0,
     isAvailable: true,
+    isActive: true,
   },
   {
     id: 'prod-usb-otg',
     storeId: 'store-commercial-center-01',
     name: 'USB Type-C OTG Flash Drive 32GB',
+    description: '',
+    imageUrls: [],
     category: 'Electronics',
     basePrice: 220.0,
     markupPrice: 242.0,
     isAvailable: true,
+    isActive: true,
   },
 ];
 
@@ -103,6 +117,8 @@ const LOCAL_DEMO_PROFILE_ID = 'local-demo-profile';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
+  const [catalogStore, setCatalogStore] = useState<VirtualStore>(mockStore);
+  const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>(mockProducts);
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
@@ -167,12 +183,32 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
+  const refreshPublicCatalog = async (storeId?: string) => {
+    const response = storeId ? await storefrontApi.getStore(storeId) : await storefrontApi.listStores();
+    const store = storeId ? response.data : response.data?.[0];
+    if (!response.success || !store) return;
+    setCatalogStore({
+      ...store,
+      rating: store.rating ?? 0,
+      isOpen: store.isOpen ?? true,
+    });
+    setCatalogProducts((store.products ?? []).map((product) => ({
+      ...product,
+      basePrice: Number(product.basePrice),
+      markupPrice: Number(product.markupPrice),
+    })));
+  };
+
+  useEffect(() => {
+    void refreshPublicCatalog();
+  }, []);
+
   const handlePlaceOrder = async (orderData: any) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTask: ErrandTask = {
       id: newTaskId,
-      storeName: mockStore.name,
-      vendorOrigin: mockStore.vendorOrigin,
+      storeName: catalogStore.name,
+      vendorOrigin: catalogStore.vendorOrigin,
       dropZone: orderData.dropZone,
       itemCount: orderData.items.length,
       totalAmount: orderData.totalAmount,
@@ -186,7 +222,7 @@ export const App: React.FC = () => {
     await db.orders.put({
       id: newTaskId,
       buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
+      storeId: catalogStore.id,
       items: orderData.items,
       totalProductCost: orderData.totalProductCost,
       convenienceFee: orderData.convenienceFee,
@@ -285,6 +321,13 @@ export const App: React.FC = () => {
           </Button>
           <Button
             size="sm"
+            variant={activeTab === 'catalog-management' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('catalog-management')}
+          >
+            Manage Catalog
+          </Button>
+          <Button
+            size="sm"
             variant={activeTab === 'dispatch' ? 'primary' : 'ghost'}
             onClick={() => setActiveTab('dispatch')}
           >
@@ -315,10 +358,14 @@ export const App: React.FC = () => {
 
         {activeTab === 'storefront' && (
           <StoreCatalog
-            store={mockStore}
-            products={mockProducts}
+            store={catalogStore}
+            products={catalogProducts}
             onPlaceOrder={handlePlaceOrder}
           />
+        )}
+
+        {activeTab === 'catalog-management' && (
+          <ProductManagement onCatalogChanged={(storeId) => { void refreshPublicCatalog(storeId); }} />
         )}
 
         {activeTab === 'dispatch' && (
