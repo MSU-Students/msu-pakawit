@@ -39,6 +39,7 @@ export const StoreBuilder: React.FC = () => {
     useState<StoreProfile | null>(null);
 
   const [showPreview, setShowPreview] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string>('');
 
   const updateProfile = (
     field: keyof StoreProfile,
@@ -49,6 +50,37 @@ export const StoreBuilder: React.FC = () => {
       [field]: value,
     }));
   };
+  
+  const handleLogoUpload = (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Please select an image file.');
+    event.target.value = '';
+    return;
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Please choose an image smaller than 2 MB.');
+    event.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      setLogoPreview(reader.result);
+      updateProfile('logoUrl', reader.result);
+    }
+  };
+
+  reader.readAsDataURL(file);
+};
 
   const storeSlug = profile.name
     .trim()
@@ -138,20 +170,28 @@ export const StoreBuilder: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Logo Image URL
+               <label className="block text-sm font-medium mb-1">
+                  Store Logo
               </label>
+
               <input
-                className="w-full border rounded-md p-2"
-                value={profile.logoUrl}
-                onChange={(e) =>
-                  updateProfile('logoUrl', e.target.value)
-                }
-                placeholder="https://example.com/logo.png"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Enter a publicly accessible image URL.
+                 type="file"
+                 accept="image/*"
+                 className="w-full border rounded-md p-2"
+                 onChange={handleLogoUpload}
+               />
+
+               <p className="text-xs text-slate-500 mt-1">
+                  Choose an image from your computer. Maximum size: 2 MB.
               </p>
+
+                {logoPreview && (
+                  <img
+                    src={logoPreview}
+                    alt="Selected store logo"
+                   className="mt-3 w-24 h-24 object-contain rounded-md border"
+                  />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -237,6 +277,9 @@ export const StoreBuilder: React.FC = () => {
                   src={profile.logoUrl}
                   alt="Store logo"
                   className="w-20 h-20 object-contain rounded-md"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
                 />
               )}
 
