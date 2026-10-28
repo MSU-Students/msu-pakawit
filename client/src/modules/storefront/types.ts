@@ -3,9 +3,24 @@ export interface ProductItem {
   storeId: string;
   name: string;
   category: string;
+  description?: string;
   basePrice: number;
   markupPrice: number;
   isAvailable: boolean;
+}
+
+export interface CartItem {
+  product: ProductItem;
+  quantity: number;
+}
+
+export interface ErrandOrderRequest {
+  storeId: string;
+  dropZone: string;
+  items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
+  totalProductCost: number;
+  convenienceFee: number;
+  totalAmount: number;
 }
 
 export interface VirtualStore {

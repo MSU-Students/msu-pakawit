@@ -1,5 +1,6 @@
 
 import Dexie, { type Table } from 'dexie';
+import type { CartItem } from '../storefront/types';
 import type {
   LocalStore,
   LocalProduct,
@@ -14,6 +15,13 @@ export interface LocalProfileImage {
   updatedAt: number;
 }
 
+export interface LocalSavedCart {
+  id: 'active-cart';
+  items: CartItem[];
+  selectedDropZone: string;
+  updatedAt: number;
+}
+
 export class MSUPakawitDatabase extends Dexie {
   stores!: Table<LocalStore, string>;
   products!: Table<LocalProduct, string>;
@@ -21,6 +29,7 @@ export class MSUPakawitDatabase extends Dexie {
   academicSchedules!: Table<LocalAcademicSchedule, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   profileImages!: Table<LocalProfileImage, string>;
+  savedCarts!: Table<LocalSavedCart, string>;
 
   constructor(databaseName: string = 'MSUPakawitOfflineDB') {
     super(databaseName);
@@ -41,6 +50,29 @@ export class MSUPakawitDatabase extends Dexie {
       academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
       syncQueue: '++id, entityType, entityId, action, status, createdAt',
       profileImages: 'id, updatedAt',
+    });
+
+    this.version(3).stores({
+      stores: 'id, hostStudentId, vendorOrigin, isActive, isSynced, updatedAt',
+      products: 'id, storeId, category, isAvailable, isSynced, updatedAt',
+      orders: 'id, buyerStudentId, runnerStudentId, storeId, status, isSynced, createdAt',
+      academicSchedules: 'id, studentId, dayOfWeek, courseCode, isLocked',
+      syncQueue: '++id, entityType, entityId, action, status, createdAt',
+      profileImages: 'id, updatedAt',
+      savedCarts: 'id',
+    });
+  }
+
+  async getSavedCart(): Promise<LocalSavedCart | undefined> {
+    return await this.savedCarts.get('active-cart');
+  }
+
+  async saveCart(items: CartItem[], selectedDropZone: string): Promise<void> {
+    await this.savedCarts.put({
+      id: 'active-cart',
+      items,
+      selectedDropZone,
+      updatedAt: Date.now(),
     });
   }
 
