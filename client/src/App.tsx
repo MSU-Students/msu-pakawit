@@ -13,6 +13,7 @@ import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -399,6 +400,8 @@ export const App: React.FC = () => {
             </Card>
           </div>
         )}
+
+        {activeTab === 'profile' && <ProfileSettings />}
       </main>
 
       {/* OTP Modal */}
