@@ -1,4 +1,4 @@
-import { IsString, Length, IsNotEmpty } from 'class-validator';
+import { IsString, Length, IsNotEmpty, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyOtpDto {
@@ -10,5 +10,6 @@ export class VerifyOtpDto {
   @ApiProperty({ example: '7429', description: '4-digit OTP provided by student buyer at drop zone' })
   @IsString()
   @Length(4, 4)
+  @Matches(/^\d{4}$/)
   otpCode: string;
 }
