@@ -157,22 +157,29 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
             ) : (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {cart.map(({ product, quantity }) => (
-                    <div key={product.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-100">
-                      <div>
-                        <div className="font-semibold text-slate-800">{product.name}</div>
-                        <div className="text-slate-500">Qty: {quantity} × ₱{product.markupPrice.toFixed(2)}</div>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveFromCart(product.id)}
-                        className="text-rose-500 hover:text-rose-700 text-xs px-1 font-bold"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
+                    {cart.map(({ product, quantity }) => (
+  <div
+    key={product.id}
+    className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-100"
+  > <div>
+      <div className="font-semibold text-slate-800">
+        {product.name}
+      </div>
+      <div className="text-slate-500">
+        Qty: {quantity} × ₱{product.markupPrice.toFixed(2)} each
+      </div>
+      <div className="text-slate-700 font-medium mt-1">
+        Item total: ₱{(quantity * product.markupPrice).toFixed(2)}
+      </div>
+    </div>
+    <button
+      onClick={() => handleRemoveFromCart(product.id)}
+      className="text-rose-500 hover:text-rose-700 text-xs px-1 font-bold"
+    >
+      ✕
+    </button>
+  </div>
+))}      </div>
                 {/* Drop Zone Selection */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
