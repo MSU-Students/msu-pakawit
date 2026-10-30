@@ -5,6 +5,11 @@ export class ApiClient {
   private accessToken: string | null = null;
 
   constructor(baseUrl?: string) {
+    try {
+      this.accessToken = sessionStorage.getItem('pakawitAccessToken');
+    } catch {
+      this.accessToken = null;
+    }
     let envBaseUrl = '';
     try {
       envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
@@ -51,8 +56,8 @@ export class ApiClient {
     return this.request<T>(path, 'PATCH', body);
   }
 
-  delete<T>(path: string): Promise<ApiResponse<T>> {
-    return this.request<T>(path, 'DELETE');
+  delete<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return this.request<T>(path, 'DELETE', body);
   }
 }
 

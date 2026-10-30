@@ -17,6 +17,10 @@ The platform addresses core campus challenges:
 
 ## 2. Architecture & Repository Structure
 
+### Web Push notifications
+
+Generate a VAPID key pair from the repository root with `npx web-push generate-vapid-keys`, then set `VAPID_SUBJECT` (a `mailto:` or HTTPS contact URI), `VAPID_PUBLIC_KEY`, and `VAPID_PRIVATE_KEY` for the API. Keep the private key server-side and configure the same key pair in every API instance. Web Push requires HTTPS (localhost is allowed for development); a user must sign in, choose **Notifications**, and explicitly enable this browser before it can receive push messages. Errand notification subscriptions and per-user preferences are stored in PostgreSQL. The production TypeORM migration adds the preference columns and `push_subscriptions` table automatically during API startup.
+
 The project is structured as a unified npm workspace monorepo divided into two primary workspaces:
 - `/client`: Frontend React PWA + Dexie.js (IndexedDB) + Tailwind CSS + Jest Testing Library
 - `/api`: Backend NestJS + TypeORM + PostgreSQL + Jest Testing Suite

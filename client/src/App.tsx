@@ -8,6 +8,8 @@ import { StoreCatalog } from './modules/storefront/StoreCatalog';
 import { ProductManagement } from './modules/storefront/ProductManagement';
 import { storefrontApi } from './modules/storefront/storefrontApi';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
+import { ErrandDetails } from './modules/dispatch/ErrandDetails';
+import { NotificationSettings } from './modules/notifications/NotificationSettings';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
 import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal';
 import { Card } from './modules/shared/Card';
@@ -17,6 +19,17 @@ import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidato
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
+import { apiClient } from './modules/shared/apiClient';
+
+const currentErrandId = (): string | null => {
+  const match = window.location.pathname.match(/^\/errands\/([^/]+)\/?$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+};
 
 // Mock seed data for Sprint 0 inception showcase
 const mockStore: VirtualStore = {
@@ -113,7 +126,8 @@ const mockSchedules: ScheduleBlock[] = [
 ];
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('storefront');
+  const [detailErrandId, setDetailErrandId] = useState<string | null>(currentErrandId);
+  const [activeTab, setActiveTab] = useState(() => currentErrandId() ? 'dispatch' : 'storefront');
   const [catalogStore, setCatalogStore] = useState<VirtualStore>(mockStore);
   const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>(mockProducts);
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
@@ -153,6 +167,32 @@ export const App: React.FC = () => {
 
   // Check schedule lock
   const isLocked = isCourierLockedBySchedule(mockSchedules).isLocked;
+
+  useEffect(() => {
+    try {
+      apiClient.setAccessToken(sessionStorage.getItem('pakawitAccessToken'));
+    } catch {
+      apiClient.setAccessToken(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const errandId = currentErrandId();
+      setDetailErrandId(errandId);
+      if (errandId) setActiveTab('dispatch');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = (tab: string) => {
+    if (detailErrandId) {
+      window.history.pushState({}, '', '/');
+      setDetailErrandId(null);
+    }
+    setActiveTab(tab);
+  };
 
   useEffect(() => {
     syncEngine.initAutoSync();
@@ -220,7 +260,7 @@ export const App: React.FC = () => {
     });
 
     setTasks((prev) => [newTask, ...prev]);
-    setActiveTab('dispatch');
+    handleTabChange('dispatch');
   };
 
   const handleAcceptTask = (taskId: string) => {
@@ -260,7 +300,7 @@ export const App: React.FC = () => {
       <Navbar
         isOnline={!isSimulatedOffline}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         pendingSyncCount={pendingSyncQueue.length}
       />
 
@@ -279,40 +319,51 @@ export const App: React.FC = () => {
           <Button
             size="sm"
             variant={activeTab === 'storefront' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('storefront')}
+            onClick={() => handleTabChange('storefront')}
           >
             Storefront
           </Button>
           <Button
             size="sm"
             variant={activeTab === 'catalog-management' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('catalog-management')}
+            onClick={() => handleTabChange('catalog-management')}
           >
             Manage Catalog
           </Button>
           <Button
             size="sm"
             variant={activeTab === 'dispatch' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('dispatch')}
+            onClick={() => handleTabChange('dispatch')}
           >
             Dispatch
           </Button>
           <Button
             size="sm"
             variant={activeTab === 'guardrails' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('guardrails')}
+            onClick={() => handleTabChange('guardrails')}
           >
             Guardrails
           </Button>
           <Button
             size="sm"
             variant={activeTab === 'offline' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('offline')}
+            onClick={() => handleTabChange('offline')}
           >
             Sync Outbox
           </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'notifications' ? 'primary' : 'ghost'}
+            onClick={() => handleTabChange('notifications')}
+          >
+            Notifications
+          </Button>
         </div>
 
+        {detailErrandId ? (
+          <ErrandDetails errandId={detailErrandId} onBack={() => handleTabChange('dispatch')} />
+        ) : (
+          <>
         {activeTab === 'storefront' && (
           <StoreCatalog
             store={catalogStore}
@@ -393,6 +444,9 @@ export const App: React.FC = () => {
               )}
             </Card>
           </div>
+        )}
+        {activeTab === 'notifications' && <NotificationSettings />}
+          </>
         )}
       </main>
 

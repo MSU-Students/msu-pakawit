@@ -48,6 +48,12 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: true })
+  notifyOnErrandStatusChanges: boolean;
+
+  @Column({ default: true })
+  notifyOnErrandAssignments: boolean;
+
   @OneToMany(() => AcademicSchedule, (schedule) => schedule.user)
   academicSchedules: AcademicSchedule[];
 
