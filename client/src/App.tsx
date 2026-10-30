@@ -19,6 +19,8 @@ import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
+import { placeOrder } from './modules/dispatch/placeOrder';
+import type { Order } from './modules/dispatch/orderTypes';
 
 // Mock seed data for Sprint 0 inception showcase
 const mockStore: VirtualStore = {
@@ -173,48 +175,24 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
-  const handlePlaceOrder = async (orderData: any) => {
-    const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTask: ErrandTask = {
-      id: newTaskId,
-      storeName: mockStore.name,
-      vendorOrigin: mockStore.vendorOrigin,
-      dropZone: orderData.dropZone,
-      itemCount: orderData.items.length,
-      totalAmount: orderData.totalAmount,
-      convenienceFee: orderData.convenienceFee,
-      status: 'PENDING',
-      buyerName: 'Current Student User',
-      createdAt: Date.now(),
-    };
 
-    // Save to Dexie IndexedDB
-    await db.orders.put({
-      id: newTaskId,
-      buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
-      items: orderData.items,
-      totalProductCost: orderData.totalProductCost,
-      convenienceFee: orderData.convenienceFee,
-      totalAmount: orderData.totalAmount,
-      dropZone: orderData.dropZone,
-      status: 'PENDING',
-      otpCode: '7429',
-      isSynced: !isSimulatedOffline,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Queue in Dexie outbox
-    await db.queueSync({
-      entityType: 'ERRAND_ORDER',
-      entityId: newTaskId,
-      action: 'CREATE',
-      payload: newTask,
-    });
-
-    setTasks((prev) => [newTask, ...prev]);
-    setActiveTab('dispatch');
+    const handleOrderPlaced = async (order: Order) => {
+    await placeOrder(order, '2023-99999', !isSimulatedOffline && navigator.onLine);
+    setTasks((prev) => [
+      {
+        id: order.id,
+        storeName: mockStore.name,
+        vendorOrigin: mockStore.vendorOrigin,
+        dropZone: order.deliveryAddress,
+        itemCount: order.items.length,
+        totalAmount: order.totalAmount,
+        convenienceFee: order.convenienceFee,
+        status: 'PENDING',
+        buyerName: order.buyerName,
+        createdAt: Date.parse(order.createdAt),
+      },
+      ...prev,
+    ]);
   };
 
   const handleProfileImageSave = async (image: string) => {
@@ -339,16 +317,13 @@ export const App: React.FC = () => {
             Profile
           </Button>
         </div>
-
-        {activeTab === 'storefront' && (
-          <div className="space-y-6">
-            <UserProfile key={accessToken ?? 'signed-out'} compact />
-            <StoreCatalog
-              store={mockStore}
-              products={mockProducts}
-              onPlaceOrder={handlePlaceOrder}
-            />
-          </div>
+               {activeTab === 'storefront' && (
+          <StoreCatalog
+            store={mockStore}
+            products={mockProducts}
+            onSubmitOrder={handleOrderPlaced}
+             onPlaceOrder={handlePlaceOrder}
+          />
         )}
 
         {activeTab === 'dispatch' && (
