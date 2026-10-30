@@ -20,7 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
     { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
     { id: 'offline', label: 'Offline Sync', icon: Clock },
-    { id: 'profile', label: 'Profile Settings', icon: UserRound },
+    { id: 'profile', label: 'Profile', icon: UserRound },
+    { id: 'settings', label: 'Profile Settings', icon: UserRound },
   ];
 
   return (

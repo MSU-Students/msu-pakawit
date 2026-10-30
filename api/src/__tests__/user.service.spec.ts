@@ -108,6 +108,26 @@ describe('UserService', () => {
     })).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('normalizes profile contact fields and allows clearing them', async () => {
+    const user = {
+      id: 'user-1',
+      phone: null,
+      alternativeEmail: null,
+    } as User;
+    repository.findOneBy.mockResolvedValue(user);
+
+    const updated = await service.updateProfile('user-1', {
+      phone: ' +63 912 345 6789 ',
+      alternativeEmail: ' AMINA.PERSONAL@EXAMPLE.COM ',
+    });
+
+    expect(updated.phone).toBe('+63 912 345 6789');
+    expect(updated.alternativeEmail).toBe('amina.personal@example.com');
+
+    await service.updateProfile('user-1', { phone: '', alternativeEmail: '' });
+    expect(user.phone).toBeNull();
+    expect(user.alternativeEmail).toBeNull();
+  });
   it('saves a role change and its actor audit record in the same transaction', async () => {
     const target = {
       id: 'target-user',

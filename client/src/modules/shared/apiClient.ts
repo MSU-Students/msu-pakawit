@@ -22,6 +22,20 @@ export class ApiClient implements AuthenticatedApiClient {
     this.baseUrl = baseUrl || envBaseUrl || '/api';
   }
 
+  async get<T>(path: string, accessToken?: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'API request failed' };
+    }
+  }
   get hasAccessToken(): boolean {
     return this.accessToken !== null;
   }
