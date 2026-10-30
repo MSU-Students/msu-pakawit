@@ -9,7 +9,8 @@ export interface ErrandFeedProps {
   tasks: ErrandTask[];
   isLockedBySchedule: boolean;
   onAcceptTask?: (taskId: string) => void;
-  onUpdateStatus?: (taskId: string, newStatus: ErrandTask['status']) => void;
+  onUpdateStatus?: (taskId: string, newStatus: Exclude<ErrandTask['status'], 'COMPLETED'>) => void;
+  onHandoffSuccessful?: (taskId: string) => void;
 }
 
 export const ErrandFeed: React.FC<ErrandFeedProps> = ({
@@ -17,6 +18,7 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
   isLockedBySchedule,
   onAcceptTask,
   onUpdateStatus,
+  onHandoffSuccessful,
 }) => {
   return (
     <div className="space-y-6">
@@ -113,9 +115,9 @@ export const ErrandFeed: React.FC<ErrandFeedProps> = ({
                     variant="outline"
                     className="border-emerald-600 text-emerald-700 hover:bg-emerald-600"
                     leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                    onClick={() => onUpdateStatus?.(task.id, 'COMPLETED')}
+                    onClick={() => onHandoffSuccessful?.(task.id)}
                   >
-                    Verify OTP & Complete
+                    Handoff Successful
                   </Button>
                 )}
               </div>

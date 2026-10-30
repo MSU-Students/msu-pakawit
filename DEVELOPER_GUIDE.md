@@ -47,7 +47,7 @@ msu-pakawit/
 │       │   ├── storefront/    # [Team 1] Store catalog, ProductCard, pricingCalculator
 │       │   ├── dispatch/      # [Team 2] ErrandFeed, RunnerStatusBadge
 │       │   ├── offline/       # [Team 3] db.ts (Dexie DB), syncEngine.ts
-│       │   ├── guardrails/    # [Team 4] AcademicScheduleGuard, OTPVerificationModal
+│       │   ├── guardrails/    # [Team 4] AcademicScheduleGuard
 │       │   └── shared/        # [Team 5] Button, Card, Badge, Navbar, apiClient
 │       └── __tests__/         # Client Jest test suite
 │
@@ -198,11 +198,17 @@ To protect academic performance, MSU Pakawit enforces strict guardrails:
 
 ## 7. Campus Drop-Zone 4-Digit OTP Protocol
 
-To guarantee physical handoff security without requiring payment gateways:
-1. When an order is placed, a unique **4-digit OTP** is generated for the buyer.
-2. The student runner picks up items from the vendor and brings them to designated campus drop hubs (e.g. *Science Complex Hub*, *Kasadpan Hall Runner Point*).
-3. The runner enters the 4-digit code provided by the buyer into the OTP Verification Modal.
-4. The system validates the OTP against the backend/local store, records the successful handoff in `OTPLog`, and marks the errand as `COMPLETED`.
+Handoff verification is enforced by the authenticated API; the recipient receives the OTP and gives it to the courier at handoff:
+
+1. A courier claims an errand and advances it through `PURCHASED` to `DELIVERING`. Starting delivery creates a transaction-bound, four-digit OTP with a five-minute lifetime.
+2. The OTP hash is stored in `OTPLog`; a separate authenticated ciphertext allows only the order's buyer to retrieve it from `GET /api/errands/:id/handoff/otp`, the project's in-app delivery mechanism. The recipient shares the code with the courier at handoff.
+3. The assigned courier enters the code through `POST /api/errands/:id/handoff/complete`. The API validates the courier assignment, OTP, expiry, and one-time-use status, then verifies the OTP and completes the order in one database transaction. The OTP log ID and completion time are saved as delivery proof.
+4. Invalid, expired, unauthorized, reused, and other failed attempts are recorded in `otp_attempts`; five failed code submissions invalidate that OTP.
+5. An administrator can authorize a replacement with `POST /api/errands/:id/handoff/reissue` after the current OTP expires or reaches its attempt limit, subject to a 60-second cooldown from OTP generation. No other resend operation is supported.
+
+These endpoints require bearer tokens. Buyer-only operations require the authenticated user's MSU ID to match the order recipient; courier operations require an active, verified courier role and assignment to the order. The encryption key is derived from `JWT_SECRET`, so keep that secret stable while OTPs are pending. Database synchronization is limited to non-production environments, so production deployments must apply the new OTP attempt, encrypted OTP, and handoff-proof schema through the team's approved database change process.
+
+The current client remains a local demo and does not provide sign-in or call these authenticated endpoints. Its courier modal accepts the recipient-provided OTP but does not mark the local task complete; use the authenticated API flow above for verified completion.
 
 ---
 
@@ -236,7 +242,8 @@ cd api && npm test
 **Test Coverage Includes:**
 - `health.controller.spec.ts`: System status and sprint module registration.
 - `schedule-guard.service.spec.ts`: Courier class schedule conflict checking.
-- `otp.service.spec.ts`: 4-digit OTP generation, expiration, retry throttling, and validation.
+- `otp.service.spec.ts`: recipient-only OTP retrieval, encrypted storage, five-minute expiration, attempt limits, and audit records.
+- `dispatch.service.spec.ts`: delivery-start generation, courier authorization, and completion proof enforcement.
 - `sync.service.spec.ts`: Batch outbox reconciliation and journal logging.
 - `storefront.service.spec.ts`: Automatic zero-capital catalog markup computation.
 

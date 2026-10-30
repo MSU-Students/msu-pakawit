@@ -106,6 +106,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
@@ -194,7 +195,6 @@ export const App: React.FC = () => {
       totalAmount: orderData.totalAmount,
       dropZone: orderData.dropZone,
       status: 'PENDING',
-      otpCode: '7429',
       isSynced: !isSimulatedOffline,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -230,23 +230,20 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleUpdateStatus = (taskId: string, newStatus: ErrandTask['status']) => {
-    if (newStatus === 'COMPLETED') {
-      setActiveOtpModalErrandId(taskId);
-      return;
-    }
+  const handleUpdateStatus = (taskId: string, newStatus: Exclude<ErrandTask['status'], 'COMPLETED'>) => {
+    setHandoffNotice(null);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
   };
 
-  const handleVerifyOtp = (otp: string) => {
-    if (otp === '7429') {
-      if (activeOtpModalErrandId) {
-        setTasks((prev) =>
-          prev.map((t) => (t.id === activeOtpModalErrandId ? { ...t, status: 'COMPLETED' } : t))
-        );
-      }
-      return true;
-    }
+  const handleHandoffSuccessful = (taskId: string) => {
+    setActiveOtpModalErrandId(taskId);
+    setHandoffNotice(null);
+  };
+
+  const handleVerifyOtp = async (_otp: string) => {
+    setHandoffNotice(
+      'The local demo is not connected to the authenticated API. The delivery remains incomplete.',
+    );
     return false;
   };
 
@@ -323,12 +320,20 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'dispatch' && (
-          <ErrandFeed
-            tasks={tasks}
-            isLockedBySchedule={isLocked}
-            onAcceptTask={handleAcceptTask}
-            onUpdateStatus={handleUpdateStatus}
-          />
+          <>
+            {handoffNotice && (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+                {handoffNotice}
+              </div>
+            )}
+            <ErrandFeed
+              tasks={tasks}
+              isLockedBySchedule={isLocked}
+              onAcceptTask={handleAcceptTask}
+              onUpdateStatus={handleUpdateStatus}
+              onHandoffSuccessful={handleHandoffSuccessful}
+            />
+          </>
         )}
 
         {activeTab === 'guardrails' && (
@@ -404,11 +409,9 @@ export const App: React.FC = () => {
         {activeTab === 'profile' && <ProfileSettings />}
       </main>
 
-      {/* OTP Modal */}
       {activeOtpModalErrandId && (
         <OTPVerificationModal
           errandId={activeOtpModalErrandId}
-          expectedOTP="7429"
           onVerify={handleVerifyOtp}
           onClose={() => setActiveOtpModalErrandId(null)}
         />
