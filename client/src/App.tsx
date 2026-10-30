@@ -15,6 +15,7 @@ import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
 import { CartPage } from './modules/storefront/CartPage';
 import type { CartItem, ErrandOrderRequest, VirtualStore, ProductItem } from './modules/storefront/types';
+import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
 
@@ -465,12 +466,15 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-          <ProfileImageSettings
-            image={profileImage}
-            loadError={profileImageLoadError}
-            onSave={handleProfileImageSave}
-            onDelete={handleProfileImageDelete}
-          />
+          <div className="space-y-6">
+            <ProfileSettings />
+            <ProfileImageSettings
+              image={profileImage}
+              loadError={profileImageLoadError}
+              onSave={handleProfileImageSave}
+              onDelete={handleProfileImageDelete}
+            />
+          </div>
         )}
 
         {activeTab === 'offline' && (
@@ -525,6 +529,7 @@ export const App: React.FC = () => {
             </Card>
           </div>
         )}
+
       </main>
 
       {/* OTP Modal */}

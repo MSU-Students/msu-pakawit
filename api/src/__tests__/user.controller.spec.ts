@@ -26,6 +26,7 @@ describe('UserController authorization', () => {
   const userService = {
     findById: jest.fn(),
     createUser: jest.fn().mockResolvedValue(user),
+    assignRole: jest.fn(),
   };
   const jwtService = {
     verifyAsync: jest.fn(),
@@ -80,5 +81,20 @@ describe('UserController authorization', () => {
 
     expect(response.body.username).toBe(user.username);
     expect(response.body.passwordHash).toBeUndefined();
+  });
+
+  it('passes the authenticated administrator as the role-change audit actor', async () => {
+    const targetUserId = '00000000-0000-4000-8000-000000000001';
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'admin-user', username: user.username, role: UserRole.ADMIN });
+    userService.findById.mockResolvedValue(user);
+    userService.assignRole.mockResolvedValue({ ...user, id: targetUserId, role: UserRole.COURIER });
+
+    await request(app.getHttpServer())
+      .patch(`/users/${targetUserId}/role`)
+      .set('Authorization', 'Bearer test-token')
+      .send({ role: UserRole.COURIER })
+      .expect(200);
+
+    expect(userService.assignRole).toHaveBeenCalledWith('admin-user', targetUserId, UserRole.COURIER);
   });
 });
