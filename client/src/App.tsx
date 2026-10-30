@@ -15,6 +15,7 @@ import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
 import { UserProfile } from './modules/users/UserProfile';
 import { SignIn } from './modules/auth/SignIn';
+import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';

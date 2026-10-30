@@ -64,7 +64,7 @@ msu-pakawit/
         │   ├── storefront/    # [Team 1] Store & Product entities, service, controller
         │   ├── dispatch/      # [Team 2] ErrandOrder entity, runner assignment
         │   ├── sync/          # [Team 3] SyncJournal entity, batch outbox reconciliation
-        │   ├── users/         # [Team 4] User entity, account and role management
+        │   ├── users/         # [Team 4] User entity, account, role management and role audit
         │   ├── auth/          # [Team 4] Username/password login and JWT issuance
         │   ├── guardrails/    # [Team 4] Academic schedules, OTP entities and services
         │   └── shared/        # [Team 5] TypeORM configuration, health check and JWT verification
@@ -126,6 +126,8 @@ Key environment variables:
 Usernames are case-insensitive and normalized to lowercase. They must be 3-32 characters and contain only letters, digits, periods, underscores, or hyphens; this format does not depend on a user's role or account type. Passwords are stored as Argon2id hashes.
 
 On an empty Sprint 0 database, create the first administrator once with `POST /api/users/bootstrap-admin`, supplying the configured `BOOTSTRAP_ADMIN_SECRET` in the `x-bootstrap-secret` header. The endpoint is unavailable after any user exists. Remove the bootstrap secret from the environment after use. Administrators can then provision users through `POST /api/users`; protected routes use bearer access tokens issued by `POST /api/auth/login`.
+
+The client’s **Profile Settings** tab signs in through the API and keeps the access token in memory for authenticated requests. Users can view their role there; only active administrators can select a user and assign a role. Each actual role change is written atomically with its audit record (`actorUserId`, `targetUserId`, `oldRole`, `newRole`, and `changedAt`) to `user_role_audits`. Development TypeORM synchronization creates this table automatically; production startup runs the included migration with synchronization disabled.
 
 ### 4.4 Running Development Servers
 

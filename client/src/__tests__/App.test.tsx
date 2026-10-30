@@ -1,7 +1,18 @@
-import { act,  render, screen } from '@testing-library/react';
 import { apiClient } from '../modules/shared/apiClient';
 import type { ApiResponse } from '../modules/shared/types';
 import type { UserProfileData } from '../modules/users/UserProfile';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+
+jest.mock('../modules/shared/apiClient', () => ({
+  apiClient: {
+    hasAccessToken: false,
+    setAccessToken: jest.fn(),
+    get: jest.fn(),
+    post: jest.fn(),
+    patch: jest.fn(),
+  },
+}));
+
 import App from '../App';
 import { db } from '../modules/offline/db';
 
