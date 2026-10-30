@@ -3,11 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import { User, UserRole } from '../modules/users/entities/user.entity';
+import { UserRoleAudit } from '../modules/users/entities/user-role-audit.entity';
 import { UserService } from '../modules/users/user.service';
 
 describe('UserService', () => {
   let service: UserService;
   let repository: any;
+  let auditRepository: any;
   let manager: any;
   let dataSource: any;
   let config: { get: jest.Mock };
@@ -17,13 +19,18 @@ describe('UserService', () => {
       create: jest.fn((user) => user),
       save: jest.fn(async (user) => user),
       findOneBy: jest.fn(),
+      findOne: jest.fn(),
       find: jest.fn(),
       countBy: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
+    auditRepository = {
+      create: jest.fn((audit) => audit),
+      save: jest.fn(async (audit) => audit),
+    };
     manager = {
       query: jest.fn(),
-      getRepository: jest.fn().mockReturnValue(repository),
+      getRepository: jest.fn((entity) => entity === User ? repository : auditRepository),
     };
     dataSource = {
       transaction: jest.fn(async (callback) => callback(manager)),
@@ -99,5 +106,70 @@ describe('UserService', () => {
       email: 'amina@msumain.edu.ph',
       password: 'correct horse battery staple',
     })).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('normalizes profile contact fields and allows clearing them', async () => {
+    const user = {
+      id: 'user-1',
+      phone: null,
+      alternativeEmail: null,
+    } as User;
+    repository.findOneBy.mockResolvedValue(user);
+
+    const updated = await service.updateProfile('user-1', {
+      phone: ' +63 912 345 6789 ',
+      alternativeEmail: ' AMINA.PERSONAL@EXAMPLE.COM ',
+    });
+
+    expect(updated.phone).toBe('+63 912 345 6789');
+    expect(updated.alternativeEmail).toBe('amina.personal@example.com');
+
+    await service.updateProfile('user-1', { phone: '', alternativeEmail: '' });
+    expect(user.phone).toBeNull();
+    expect(user.alternativeEmail).toBeNull();
+  });
+  it('saves a role change and its actor audit record in the same transaction', async () => {
+    const target = {
+      id: 'target-user',
+      role: UserRole.STUDENT,
+      isActive: true,
+    };
+    repository.findOne.mockResolvedValue(target);
+    repository.countBy.mockResolvedValue(2);
+
+    const updated = await service.assignRole('admin-user', 'target-user', UserRole.COURIER);
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(manager.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock($1)', [1146110032]);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 'target-user' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(updated.role).toBe(UserRole.COURIER);
+    expect(auditRepository.create).toHaveBeenCalledWith({
+      actorUserId: 'admin-user',
+      targetUserId: 'target-user',
+      oldRole: UserRole.STUDENT,
+      newRole: UserRole.COURIER,
+    });
+    expect(auditRepository.save).toHaveBeenCalledWith(expect.objectContaining({
+      actorUserId: 'admin-user',
+      targetUserId: 'target-user',
+      oldRole: UserRole.STUDENT,
+      newRole: UserRole.COURIER,
+    }));
+  });
+
+  it('does not create an audit record when the role is unchanged', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'target-user',
+      role: UserRole.STUDENT,
+      isActive: true,
+    });
+
+    await service.assignRole('admin-user', 'target-user', UserRole.STUDENT);
+
+    expect(auditRepository.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });
