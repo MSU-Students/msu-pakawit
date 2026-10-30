@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Navigation, Clock, ShieldCheck, UserRound, Wifi, WifiOff } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Navigation, Clock, ShieldCheck, UserRound, Wifi, WifiOff } from 'lucide-react';
 import { Badge } from './Badge';
 
 export interface NavbarProps {
@@ -7,6 +7,7 @@ export interface NavbarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   pendingSyncCount?: number;
+  cartItemCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -14,9 +15,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   pendingSyncCount = 0,
+  cartItemCount = 0,
 }) => {
   const navItems = [
     { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
+    { id: 'cart', label: `View Cart${cartItemCount > 0 ? ` (${cartItemCount})` : ''}`, icon: ShoppingCart },
     { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
     { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
     { id: 'offline', label: 'Offline Sync', icon: Clock },

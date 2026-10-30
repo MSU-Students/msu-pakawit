@@ -1,69 +1,26 @@
-import React, { useState } from 'react';
-import { Store, ShoppingCart, MapPin, Percent, Info, Minus, Plus, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Store, ShoppingCart, MapPin, Percent } from 'lucide-react';
 import { Card } from '../shared/Card';
+import { Button } from '../shared/Button';
 import { Badge } from '../shared/Badge';
 import { ProductCard } from './ProductCard';
-import { calculateOrderPricing } from './pricingCalculator';
-import { useCart } from './useCart';
-import { getItemCount, MAX_QUANTITY } from './cartReducer';
 import type { VirtualStore, ProductItem } from './types';
-import { Button } from '../shared/Button';
-
 
 export interface StoreCatalogProps {
   store: VirtualStore;
   products: ProductItem[];
-  onPlaceOrder?: (orderData: any) => void;
+  cartItemCount: number;
+  onAddToCart: (product: ProductItem) => void;
+  onViewCart: () => void;
 }
 
 export const StoreCatalog: React.FC<StoreCatalogProps> = ({
   store,
   products,
-  onPlaceOrder,
+  cartItemCount,
+  onAddToCart,
+  onViewCart,
 }) => {
-  const { cart, addItem, removeItem, setQuantity, clearCart } = useCart(store.id);
-  const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
-
-  const dropZones = [
-    'Science Complex Drop Hub',
-    'Kasadpan Hall Runner Point',
-    'CNSM Main Lobby',
-    'MSU Main Library Kiosk',
-    'College of Engineering Quadrangle',
-  ];
-
-  const itemCount = getItemCount(cart);
-
-  const pricingItems = cart.map((item) => ({
-    basePrice: item.product.basePrice,
-    quantity: item.quantity,
-  }));
-
-  const pricingBreakdown = calculateOrderPricing(
-    pricingItems,
-    store.markupPercentage,
-    store.defaultConvenienceFee
-  );
-
-  const handleCheckout = () => {
-    if (cart.length === 0) return;
-    const orderData = {
-      storeId: store.id,
-      dropZone: selectedDropZone,
-      items: cart.map((i) => ({
-        productId: i.product.id,
-        name: i.product.name,
-        quantity: i.quantity,
-        unitPrice: i.product.markupPrice,
-      })),
-      totalProductCost: pricingBreakdown.subtotal,
-      convenienceFee: pricingBreakdown.convenienceFee,
-      totalAmount: pricingBreakdown.grandTotal,
-    };
-    onPlaceOrder?.(orderData);
-    clearCart();
-  };
-
   return (
     <div className="space-y-6">
       {/* Store Header Banner */}
@@ -100,10 +57,9 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
         </div>
       </Card>
 
-      {/* Main Grid: Catalog Products vs Cart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
             <h3 className="text-lg font-bold text-slate-800">
               Campus Curated Catalog ({products.length})
             </h3>
@@ -111,155 +67,23 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
               On-demand purchase by peer student couriers
             </span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={addItem}
-              />
-            ))}
-          </div>
+          <Button
+            variant="outline"
+            leftIcon={<ShoppingCart className="w-4 h-4" />}
+            onClick={onViewCart}
+          >
+            View Cart ({cartItemCount})
+          </Button>
         </div>
 
-        {/* Errand Cart & Drop Hub Selection */}
-        <div className="space-y-4">
-          <Card className="sticky top-20 border-slate-300">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-msu-maroon" />
-                <h4 className="font-bold text-slate-900">Your Errand Cart</h4>
-              </div>
-              <Badge variant="neutral" size="sm">
-                {itemCount} {itemCount === 1 ? 'item' : 'items'}
-              </Badge>
-            </div>
-
-            {cart.length === 0 ? (
-              <div role="status" className="py-8 text-center text-slate-400 text-sm">
-                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                Your cart is empty. Add items from the catalog to build an errand request.
-              </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {cart.map(({ product, quantity }) => (
-                    <div
-                      key={product.id}
-                      className="text-xs bg-slate-50 p-2 rounded border border-slate-100 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold text-slate-800">{product.name}</div>
-                        <button
-                          onClick={() => removeItem(product.id)}
-                          aria-label={`Remove ${product.name} from cart`}
-                          className="text-rose-500 hover:text-rose-700"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setQuantity(product.id, quantity - 1)}
-                            aria-label={`Decrease quantity of ${product.name}`}
-                            className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span
-                            className="w-8 text-center font-semibold"
-                            aria-label={`Quantity of ${product.name}`}
-                          >
-                            {quantity}
-                          </span>
-                          <button
-                            onClick={() => setQuantity(product.id, quantity + 1)}
-                            disabled={quantity >= MAX_QUANTITY}
-                            aria-label={`Increase quantity of ${product.name}`}
-                            className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-slate-500">₱{product.markupPrice.toFixed(2)} each</div>
-                          <div className="font-semibold text-slate-800">
-                            ₱{(product.markupPrice * quantity).toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                               <button
-                  onClick={clearCart}
-                  className="text-[11px] text-slate-500 hover:text-rose-600 underline"
-                >
-                  Clear cart
-                </button>
-
-                {/* Drop Zone Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Select Campus Drop Zone (Hub)
-                  </label>
-                  <select
-                    className="w-full text-xs p-2 border border-slate-300 rounded-lg bg-white focus:ring-1 focus:ring-msu-maroon"
-                    value={selectedDropZone}
-                    onChange={(e) => setSelectedDropZone(e.target.value)}
-                  >
-                    {dropZones.map((zone) => (
-                      <option key={zone} value={zone}>
-                        {zone}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Cost Breakdown */}
-                <div className="pt-3 border-t border-slate-200 text-xs space-y-1.5 text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Base Vendor Total:</span>
-                    <span>₱{pricingBreakdown.basePrice.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Store Markup ({store.markupPercentage}%):</span>
-                    <span>₱{pricingBreakdown.markupAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium text-slate-800">
-                    <span>Items Subtotal:</span>
-                    <span>₱{pricingBreakdown.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-msu-maroon font-semibold">
-                    <span>Courier Errand Fee:</span>
-                    <span>₱{pricingBreakdown.convenienceFee.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-slate-900 text-sm pt-2 border-t border-slate-300">
-                    <span>Grand Total (COD):</span>
-                    <span className="text-msu-maroon text-base">₱{pricingBreakdown.grandTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  onClick={handleCheckout}
-                >
-                  Place Errand Request (COD)
-                </Button>
-
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 bg-slate-50 p-2 rounded">
-                  <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>Verified with 4-Digit OTP handoff at drop zone.</span>
-                </div>
-              </div>
-            )}
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+            />
+          ))}
         </div>
       </div>
     </div>

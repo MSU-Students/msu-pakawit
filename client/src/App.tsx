@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './modules/offline/db';
 import { syncEngine } from './modules/offline/syncEngine';
@@ -13,8 +13,9 @@ import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
 import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { CartPage } from './modules/storefront/CartPage';
+import type { CartItem, ErrandOrderRequest, VirtualStore, ProductItem } from './modules/storefront/types';
 import { ProfileSettings } from './modules/users/ProfileSettings';
-import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
 
@@ -37,6 +38,7 @@ const mockProducts: ProductItem[] = [
     storeId: 'store-commercial-center-01',
     name: 'Yellow Pad Paper (80 leaves)',
     category: 'School Supplies',
+    description: '80 leaves of smooth, ruled yellow pad paper for class notes and assignments.',
     basePrice: 45.0,
     markupPrice: 49.5,
     isAvailable: true,
@@ -46,6 +48,7 @@ const mockProducts: ProductItem[] = [
     storeId: 'store-commercial-center-01',
     name: 'Pilot G2 Gel Pen 0.5 Black',
     category: 'School Supplies',
+    description: 'A black 0.5 mm gel pen with smooth-flowing ink for writing and note-taking.',
     basePrice: 65.0,
     markupPrice: 71.5,
     isAvailable: true,
@@ -55,6 +58,7 @@ const mockProducts: ProductItem[] = [
     storeId: 'store-commercial-center-01',
     name: 'Traditional Chicken Pater (Spicy Palapa)',
     category: 'Campus Food',
+    description: 'A savory traditional chicken pater topped with spicy palapa.',
     basePrice: 50.0,
     markupPrice: 55.0,
     isAvailable: true,
@@ -64,6 +68,7 @@ const mockProducts: ProductItem[] = [
     storeId: 'store-commercial-center-01',
     name: 'USB Type-C OTG Flash Drive 32GB',
     category: 'Electronics',
+    description: 'A 32 GB flash drive with a USB Type-C connector for compatible devices.',
     basePrice: 220.0,
     markupPrice: 242.0,
     isAvailable: true,
@@ -106,12 +111,55 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('storefront');
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
+  const [cartStorageError, setCartStorageError] = useState<string | null>(null);
+  const [cartLoadAttempt, setCartLoadAttempt] = useState(0);
+  const cartSaveQueue = useRef(Promise.resolve());
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void db.getSavedCart()
+      .then((savedCart) => {
+        if (!isMounted) return;
+        if (savedCart) {
+          setCart(savedCart.items);
+          setSelectedDropZone(savedCart.selectedDropZone);
+        }
+        setCartStorageError(null);
+        setIsCartLoaded(true);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load the saved cart from this browser', error);
+        if (isMounted) {
+          setCartStorageError('Could not load your saved cart. Your cart changes will not be saved until storage is available.');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cartLoadAttempt]);
+
+  useEffect(() => {
+    if (!isCartLoaded) return;
+
+    cartSaveQueue.current = cartSaveQueue.current
+      .then(() => db.saveCart(cart, selectedDropZone))
+      .then(() => setCartStorageError(null))
+      .catch((error: unknown) => {
+        console.error('Failed to save the cart in this browser', error);
+        setCartStorageError('Could not save your cart in this browser. Check available storage and try again.');
+      });
+  }, [cart, selectedDropZone, isCartLoaded]);
 
   useEffect(() => {
     let isMounted = true;
@@ -168,7 +216,48 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
-  const handlePlaceOrder = async (orderData: any) => {
+  const handleAddToCart = (product: ProductItem) => {
+    setCart((currentCart) => {
+      const existingItem = currentCart.find((item) => item.product.id === product.id);
+      if (existingItem) {
+        return currentCart.map((item) =>
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...currentCart, { product, quantity: 1 }];
+    });
+  };
+
+  const handleUpdateCartQuantity = (productId: string, quantity: number) => {
+    if (quantity < 1) {
+      setCart((currentCart) => currentCart.filter((item) => item.product.id !== productId));
+      return;
+    }
+    setCart((currentCart) =>
+      currentCart.map((item) => item.product.id === productId ? { ...item, quantity } : item)
+    );
+  };
+
+  const handleRemoveCartItem = (productId: string) => {
+    setCart((currentCart) => currentCart.filter((item) => item.product.id !== productId));
+  };
+
+  const handleRetryCartStorage = () => {
+    if (!isCartLoaded) {
+      setCartLoadAttempt((attempt) => attempt + 1);
+      return;
+    }
+
+    cartSaveQueue.current = cartSaveQueue.current
+      .then(() => db.saveCart(cart, selectedDropZone))
+      .then(() => setCartStorageError(null))
+      .catch((error: unknown) => {
+        console.error('Failed to save the cart in this browser', error);
+        setCartStorageError('Could not save your cart in this browser. Check available storage and try again.');
+      });
+  };
+
+  const handlePlaceOrder = async (orderData: ErrandOrderRequest) => {
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTask: ErrandTask = {
       id: newTaskId,
@@ -187,7 +276,7 @@ export const App: React.FC = () => {
     await db.orders.put({
       id: newTaskId,
       buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
+      storeId: orderData.storeId,
       items: orderData.items,
       totalProductCost: orderData.totalProductCost,
       convenienceFee: orderData.convenienceFee,
@@ -209,6 +298,7 @@ export const App: React.FC = () => {
     });
 
     setTasks((prev) => [newTask, ...prev]);
+    setCart([]);
     setActiveTab('dispatch');
   };
 
@@ -263,6 +353,7 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         pendingSyncCount={pendingSyncQueue.length}
+        cartItemCount={cart.reduce((total, item) => total + item.quantity, 0)}
       />
 
       <OfflineBanner
@@ -275,6 +366,19 @@ export const App: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {cartStorageError && (
+          <div role="alert" className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <span>{cartStorageError}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRetryCartStorage}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Domain Tab Switcher for Sprint 0 Showcase */}
         <div className="flex sm:hidden overflow-x-auto gap-2 pb-3 mb-4">
           <Button
@@ -283,6 +387,13 @@ export const App: React.FC = () => {
             onClick={() => setActiveTab('storefront')}
           >
             Storefront
+          </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'cart' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('cart')}
+          >
+            View Cart ({cart.reduce((total, item) => total + item.quantity, 0)})
           </Button>
           <Button
             size="sm"
@@ -318,6 +429,21 @@ export const App: React.FC = () => {
           <StoreCatalog
             store={mockStore}
             products={mockProducts}
+            cartItemCount={cart.reduce((total, item) => total + item.quantity, 0)}
+            onAddToCart={handleAddToCart}
+            onViewCart={() => setActiveTab('cart')}
+          />
+        )}
+
+        {activeTab === 'cart' && (
+          <CartPage
+            store={mockStore}
+            cart={cart}
+            selectedDropZone={selectedDropZone}
+            onDropZoneChange={setSelectedDropZone}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveCartItem}
+            onContinueShopping={() => setActiveTab('storefront')}
             onPlaceOrder={handlePlaceOrder}
           />
         )}
@@ -340,12 +466,15 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-          <ProfileImageSettings
-            image={profileImage}
-            loadError={profileImageLoadError}
-            onSave={handleProfileImageSave}
-            onDelete={handleProfileImageDelete}
-          />
+          <div className="space-y-6">
+            <ProfileSettings />
+            <ProfileImageSettings
+              image={profileImage}
+              loadError={profileImageLoadError}
+              onSave={handleProfileImageSave}
+              onDelete={handleProfileImageDelete}
+            />
+          </div>
         )}
 
         {activeTab === 'offline' && (
@@ -401,7 +530,6 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'profile' && <ProfileSettings />}
       </main>
 
       {/* OTP Modal */}

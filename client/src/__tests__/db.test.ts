@@ -45,6 +45,30 @@ describe('Dexie.js Offline Database & Outbox Queue', () => {
     await expect(testDb.getProfileImage('local-demo-profile')).resolves.toBeNull();
   });
 
+  it('saves and restores cart items and the selected drop zone', async () => {
+    const items = [{
+      product: {
+        id: 'product-1',
+        storeId: 'store-1',
+        name: 'Notebook',
+        category: 'School Supplies',
+        description: 'A ruled notebook.',
+        basePrice: 100,
+        markupPrice: 110,
+        isAvailable: true,
+      },
+      quantity: 2,
+    }];
+
+    await testDb.saveCart(items, 'CNSM Main Lobby');
+
+    await expect(testDb.getSavedCart()).resolves.toMatchObject({
+      id: 'active-cart',
+      items,
+      selectedDropZone: 'CNSM Main Lobby',
+    });
+  });
+
   it('queues outbox mutation items for offline sync', async () => {
     await testDb.queueSync({
       entityType: 'STORE',

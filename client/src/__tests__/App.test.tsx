@@ -27,7 +27,7 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
 
   it('keeps a saved profile image after the app is refreshed', async () => {
     const { unmount } = render(<App />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Profile' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /^Profile$/i }));
 
     fireEvent.change(screen.getByLabelText('Choose profile image'), {
       target: { files: [new File(['image-data'], 'profile.png', { type: 'image/png' })] },
@@ -40,7 +40,7 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
 
     unmount();
     render(<App />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Profile' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /^Profile$/i }));
 
     expect(await screen.findByAltText('Current profile')).toHaveAttribute('src', savedImage);
   });
@@ -48,7 +48,7 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
   it('does not restore a deleted profile image after refreshing the app', async () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
     const { unmount } = render(<App />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Profile' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /^Profile$/i }));
     fireEvent.change(screen.getByLabelText('Choose profile image'), {
       target: { files: [new File(['image-data'], 'profile.png', { type: 'image/png' })] },
     });
@@ -62,7 +62,7 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
 
     unmount();
     render(<App />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Profile' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: /^Profile$/i }));
 
     expect(await screen.findByLabelText('Default avatar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete Picture' })).toBeDisabled();
