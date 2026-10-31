@@ -11,7 +11,11 @@ import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal'
 import { Card } from './modules/shared/Card';
 import { Badge } from './modules/shared/Badge';
 import { Button } from './modules/shared/Button';
+import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
+import { UserProfile } from './modules/users/UserProfile';
+import { SignIn } from './modules/auth/SignIn';
+import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -98,14 +102,40 @@ const mockSchedules: ScheduleBlock[] = [
   },
 ];
 
+const LOCAL_DEMO_PROFILE_ID = 'local-demo-profile';
+
 export const App: React.FC = () => {
+  const [accessToken, setAccessToken] = useState<string | null>(() =>
+    window.localStorage.getItem('accessToken'),
+  );
   const [activeTab, setActiveTab] = useState('storefront');
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void db.getProfileImage(LOCAL_DEMO_PROFILE_ID)
+      .then((image) => {
+        if (isMounted) setProfileImage(image);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load the local demo profile image', error);
+        if (isMounted) {
+          setProfileImageLoadError('Could not load the saved profile image from this browser.');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Simulated live tasks state
   const [tasks, setTasks] = useState<ErrandTask[]>([
@@ -187,6 +217,18 @@ export const App: React.FC = () => {
     setActiveTab('dispatch');
   };
 
+  const handleProfileImageSave = async (image: string) => {
+    await db.saveProfileImage(image, LOCAL_DEMO_PROFILE_ID);
+    setProfileImage(image);
+    setProfileImageLoadError(null);
+  };
+
+  const handleProfileImageDelete = async () => {
+    await db.deleteProfileImage(LOCAL_DEMO_PROFILE_ID);
+    setProfileImage(null);
+    setProfileImageLoadError(null);
+  };
+
   const handleAcceptTask = (taskId: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: 'ACCEPTED', runnerName: 'Me (Courier)' } : t))
@@ -219,6 +261,11 @@ export const App: React.FC = () => {
     setIsSyncing(false);
   };
 
+  const handleSignOut = () => {
+    window.localStorage.removeItem('accessToken');
+    setAccessToken(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900">
       <Navbar
@@ -236,6 +283,22 @@ export const App: React.FC = () => {
         onToggleSimulatedOffline={() => setIsSimulatedOffline(!isSimulatedOffline)}
         isSimulatedOffline={isSimulatedOffline}
       />
+
+      <section className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        {accessToken ? (
+          <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-900">You are signed in</h2>
+              <p className="text-sm text-slate-600">Your dashboard remains available while signed in or out.</p>
+            </div>
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign out
+            </Button>
+          </Card>
+        ) : (
+          <SignIn onSignedIn={setAccessToken} />
+        )}
+      </section>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Domain Tab Switcher for Sprint 0 Showcase */}
@@ -268,14 +331,24 @@ export const App: React.FC = () => {
           >
             Sync Outbox
           </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'profile' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
+          </Button>
         </div>
 
         {activeTab === 'storefront' && (
-          <StoreCatalog
-            store={mockStore}
-            products={mockProducts}
-            onPlaceOrder={handlePlaceOrder}
-          />
+          <div className="space-y-6">
+            <UserProfile key={accessToken ?? 'signed-out'} compact />
+            <StoreCatalog
+              store={mockStore}
+              products={mockProducts}
+              onPlaceOrder={handlePlaceOrder}
+            />
+          </div>
         )}
 
         {activeTab === 'dispatch' && (
@@ -292,6 +365,15 @@ export const App: React.FC = () => {
             studentName="Amina Radiamoda"
             studentId="2023-01429"
             schedules={mockSchedules}
+          />
+        )}
+
+        {activeTab === 'profile' && (
+          <ProfileImageSettings
+            image={profileImage}
+            loadError={profileImageLoadError}
+            onSave={handleProfileImageSave}
+            onDelete={handleProfileImageDelete}
           />
         )}
 
@@ -344,9 +426,12 @@ export const App: React.FC = () => {
                   ))}
                 </div>
               )}
+
             </Card>
           </div>
         )}
+
+        {activeTab === 'profile' && <UserProfile key={accessToken ?? 'signed-out'} />}
       </main>
 
       {/* OTP Modal */}

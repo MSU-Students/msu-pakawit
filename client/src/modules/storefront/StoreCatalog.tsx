@@ -1,15 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../offline/db';
 import React, { useState, useEffect } from 'react';
-
-
-import { Store, ShoppingCart, MapPin, Percent, Info } from 'lucide-react';
+import { Store, ShoppingCart, MapPin, Percent, Info, Minus, Plus, Trash2 } from 'lucide-react';
 import { Card } from '../shared/Card';
-import { Button } from '../shared/Button';
 import { Badge } from '../shared/Badge';
 import { ProductCard } from './ProductCard';
 import { calculateOrderPricing } from './pricingCalculator';
+import { useCart } from './useCart';
+import { getItemCount, MAX_QUANTITY } from './cartReducer';
 import type { VirtualStore, ProductItem } from './types';
+import { Button } from '../shared/Button';
+
 
 export interface StoreCatalogProps {
   store: VirtualStore;
@@ -22,7 +23,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
   products,
   onPlaceOrder,
 }) => {
-  const [cart, setCart] = useState<Array<{ product: ProductItem; quantity: number }>>([]);
+  const { cart, addItem, removeItem, setQuantity, clearCart } = useCart(store.id);
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
 
   const [isOnline, setIsOnline] = useState(
@@ -86,23 +87,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
     'College of Engineering Quadrangle',
   ];
 
-  const handleAddToCart = (product: ProductItem) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-  };
-
-  const handleRemoveFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-  };
+  const itemCount = getItemCount(cart);
 
   const pricingItems = cart.map((item) => ({
     basePrice: item.product.basePrice,
@@ -131,7 +116,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
       totalAmount: pricingBreakdown.grandTotal,
     };
     onPlaceOrder?.(orderData);
-    setCart([]);
+    clearCart();
   };
 
   return (
@@ -193,7 +178,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={handleAddToCart}
+                onAddToCart={addItem}
               />
             ))}
           </div>
@@ -208,33 +193,76 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
                 <h4 className="font-bold text-slate-900">Your Errand Cart</h4>
               </div>
               <Badge variant="neutral" size="sm">
-                {cart.reduce((a, b) => a + b.quantity, 0)} items
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
               </Badge>
             </div>
 
             {cart.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-sm">
+              <div role="status" className="py-8 text-center text-slate-400 text-sm">
                 <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                Select items from the catalog to build an errand request
+                Your cart is empty. Add items from the catalog to build an errand request.
               </div>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {cart.map(({ product, quantity }) => (
-                    <div key={product.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-100">
-                      <div>
+                    <div
+                      key={product.id}
+                      className="text-xs bg-slate-50 p-2 rounded border border-slate-100 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
                         <div className="font-semibold text-slate-800">{product.name}</div>
-                        <div className="text-slate-500">Qty: {quantity} × ₱{product.markupPrice.toFixed(2)}</div>
+                        <button
+                          onClick={() => removeItem(product.id)}
+                          aria-label={`Remove ${product.name} from cart`}
+                          className="text-rose-500 hover:text-rose-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleRemoveFromCart(product.id)}
-                        className="text-rose-500 hover:text-rose-700 text-xs px-1 font-bold"
-                      >
-                        ✕
-                      </button>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setQuantity(product.id, quantity - 1)}
+                            aria-label={`Decrease quantity of ${product.name}`}
+                            className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span
+                            className="w-8 text-center font-semibold"
+                            aria-label={`Quantity of ${product.name}`}
+                          >
+                            {quantity}
+                          </span>
+                          <button
+                            onClick={() => setQuantity(product.id, quantity + 1)}
+                            disabled={quantity >= MAX_QUANTITY}
+                            aria-label={`Increase quantity of ${product.name}`}
+                            className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-slate-500">₱{product.markupPrice.toFixed(2)} each</div>
+                          <div className="font-semibold text-slate-800">
+                            ₱{(product.markupPrice * quantity).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
+
+                               <button
+                  onClick={clearCart}
+                  className="text-[11px] text-slate-500 hover:text-rose-600 underline"
+                >
+                  Clear cart
+                </button>
 
                 {/* Drop Zone Selection */}
                 <div>

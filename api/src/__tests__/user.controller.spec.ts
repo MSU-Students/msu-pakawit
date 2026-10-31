@@ -17,6 +17,8 @@ describe('UserController authorization', () => {
     passwordHash: 'never-return-this-hash',
     fullName: 'Amina Radiamoda',
     email: 'amina@msumain.edu.ph',
+    phone: '+63 912 345 6789',
+    alternativeEmail: 'amina.personal@example.com',
     role: UserRole.ADMIN,
     isCourierVerified: false,
     isActive: true,
@@ -26,6 +28,7 @@ describe('UserController authorization', () => {
   const userService = {
     findById: jest.fn(),
     createUser: jest.fn().mockResolvedValue(user),
+    assignRole: jest.fn(),
   };
   const jwtService = {
     verifyAsync: jest.fn(),
@@ -80,5 +83,51 @@ describe('UserController authorization', () => {
 
     expect(response.body.username).toBe(user.username);
     expect(response.body.passwordHash).toBeUndefined();
+  });
+
+  it('returns the authenticated profile fields without requiring an administrator role', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', username: user.username, role: UserRole.STUDENT });
+    userService.findById.mockResolvedValue({ ...user, role: UserRole.STUDENT });
+
+    const response = await request(app.getHttpServer())
+      .get('/users/me')
+      .set('Authorization', '******')
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
+      alternativeEmail: user.alternativeEmail,
+      role: UserRole.STUDENT,
+    });
+    expect(response.body.passwordHash).toBeUndefined();
+  });
+
+  it('returns null contact values when the user has no contact details', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', username: user.username, role: UserRole.STUDENT });
+    userService.findById.mockResolvedValue({ ...user, phone: null, alternativeEmail: null });
+
+    const response = await request(app.getHttpServer())
+      .get('/users/me')
+      .set('Authorization', '******')
+      .expect(200);
+
+    expect(response.body.phone).toBeNull();
+    expect(response.body.alternativeEmail).toBeNull();
+  });
+  it('passes the authenticated administrator as the role-change audit actor', async () => {
+    const targetUserId = '00000000-0000-4000-8000-000000000001';
+    jwtService.verifyAsync.mockResolvedValue({ sub: 'admin-user', username: user.username, role: UserRole.ADMIN });
+    userService.findById.mockResolvedValue(user);
+    userService.assignRole.mockResolvedValue({ ...user, id: targetUserId, role: UserRole.COURIER });
+
+    await request(app.getHttpServer())
+      .patch(`/users/${targetUserId}/role`)
+      .set('Authorization', 'Bearer test-token')
+      .send({ role: UserRole.COURIER })
+      .expect(200);
+
+    expect(userService.assignRole).toHaveBeenCalledWith('admin-user', targetUserId, UserRole.COURIER);
   });
 });
