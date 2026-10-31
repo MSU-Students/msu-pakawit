@@ -16,8 +16,9 @@ import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidato
 import { UserProfile } from './modules/users/UserProfile';
 import { SignIn } from './modules/auth/SignIn';
 import { ProfileSettings } from './modules/users/ProfileSettings';
+import { apiClient } from './modules/shared/apiClient';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
-import type { ErrandTask } from './modules/dispatch/types';
+import type { ErrandOrderReceipt, ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
 
 // Mock seed data for Sprint 0 inception showcase
@@ -114,6 +115,8 @@ export const App: React.FC = () => {
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profileImageLoadError, setProfileImageLoadError] = useState<string | null>(null);
+  const [orderReceipt, setOrderReceipt] = useState<ErrandOrderReceipt | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
@@ -173,10 +176,29 @@ export const App: React.FC = () => {
     return () => syncEngine.cleanup();
   }, []);
 
-  const handlePlaceOrder = async (orderData: any) => {
-    const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
+  const handlePlaceOrder = async (
+    orderData: Omit<import('./modules/dispatch/types').ErrandOrderRequest, 'buyerStudentId'>,
+  ): Promise<boolean> => {
+    setOrderError(null);
+    const response = await apiClient.post<ErrandOrderReceipt>('/errands', {
+      ...orderData,
+      buyerStudentId: '2023-99999',
+    });
+
+    if (!response.success || !response.data) {
+      setOrderError(response.error || 'Could not place the order. Please try again.');
+      return false;
+    }
+
+    const receipt = response.data;
+    const createdAt = Date.parse(receipt.timestamp);
+    if (!receipt.orderId || Number.isNaN(createdAt)) {
+      setOrderError('The order was placed, but the server returned an invalid receipt.');
+      return false;
+    }
+
     const newTask: ErrandTask = {
-      id: newTaskId,
+      id: receipt.orderId,
       storeName: mockStore.name,
       vendorOrigin: mockStore.vendorOrigin,
       dropZone: orderData.dropZone,
@@ -185,36 +207,31 @@ export const App: React.FC = () => {
       convenienceFee: orderData.convenienceFee,
       status: 'PENDING',
       buyerName: 'Current Student User',
-      createdAt: Date.now(),
+      createdAt,
     };
 
-    // Save to Dexie IndexedDB
-    await db.orders.put({
-      id: newTaskId,
-      buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
-      items: orderData.items,
-      totalProductCost: orderData.totalProductCost,
-      convenienceFee: orderData.convenienceFee,
-      totalAmount: orderData.totalAmount,
-      dropZone: orderData.dropZone,
-      status: 'PENDING',
-      otpCode: '7429',
-      isSynced: !isSimulatedOffline,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    // Queue in Dexie outbox
-    await db.queueSync({
-      entityType: 'ERRAND_ORDER',
-      entityId: newTaskId,
-      action: 'CREATE',
-      payload: newTask,
-    });
+    try {
+      await db.orders.put({
+        id: receipt.orderId,
+        buyerStudentId: '2023-99999',
+        storeId: mockStore.id,
+        items: orderData.items,
+        totalProductCost: orderData.totalProductCost,
+        convenienceFee: orderData.convenienceFee,
+        totalAmount: orderData.totalAmount,
+        dropZone: orderData.dropZone,
+        status: 'PENDING',
+        isSynced: true,
+        createdAt,
+        updatedAt: createdAt,
+      });
+    } catch (error) {
+      console.error('Failed to cache the placed order locally', error);
+    }
 
     setTasks((prev) => [newTask, ...prev]);
-    setActiveTab('dispatch');
+    setOrderReceipt(receipt);
+    return true;
   };
 
   const handleProfileImageSave = async (image: string) => {
@@ -348,6 +365,22 @@ export const App: React.FC = () => {
               products={mockProducts}
               onPlaceOrder={handlePlaceOrder}
             />
+            {orderError && (
+              <p role="alert" className="text-sm text-rose-700">
+                {orderError}
+              </p>
+            )}
+            {orderReceipt && (
+              <Card aria-label="Order receipt">
+                <h2 className="font-semibold text-slate-900">Order receipt</h2>
+                <p className="mt-2 text-sm text-slate-700">
+                  Order ID: <span className="font-mono">{orderReceipt.orderId}</span>
+                </p>
+                <p className="text-sm text-slate-700">
+                  Timestamp: <time dateTime={orderReceipt.timestamp}>{orderReceipt.timestamp}</time>
+                </p>
+              </Card>
+            )}
           </div>
         )}
 

@@ -10,12 +10,15 @@ import { useCart } from './useCart';
 import { getItemCount, MAX_QUANTITY } from './cartReducer';
 import type { VirtualStore, ProductItem } from './types';
 import { Button } from '../shared/Button';
+import type { ErrandOrderRequest } from '../dispatch/types';
 
 
 export interface StoreCatalogProps {
   store: VirtualStore;
   products: ProductItem[];
-  onPlaceOrder?: (orderData: any) => void;
+  onPlaceOrder?: (
+    orderData: Omit<ErrandOrderRequest, 'buyerStudentId'>,
+  ) => boolean | void | Promise<boolean | void>;
 }
 
 export const StoreCatalog: React.FC<StoreCatalogProps> = ({
@@ -25,6 +28,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
 }) => {
   const { cart, addItem, removeItem, setQuantity, clearCart } = useCart(store.id);
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isOnline, setIsOnline] = useState(
     typeof navigator === 'undefined' ? true : navigator.onLine
@@ -100,8 +104,8 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
     store.defaultConvenienceFee
   );
 
-  const handleCheckout = () => {
-    if (cart.length === 0) return;
+  const handleCheckout = async () => {
+    if (cart.length === 0 || isSubmitting) return;
     const orderData = {
       storeId: store.id,
       dropZone: selectedDropZone,
@@ -115,8 +119,13 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
       convenienceFee: pricingBreakdown.convenienceFee,
       totalAmount: pricingBreakdown.grandTotal,
     };
-    onPlaceOrder?.(orderData);
-    clearCart();
+    setIsSubmitting(true);
+    try {
+      const placed = await onPlaceOrder?.(orderData);
+      if (placed !== false) clearCart();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -310,6 +319,8 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
                   variant="primary"
                   className="w-full"
                   onClick={handleCheckout}
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
                 >
                   Place Errand Request (COD)
                 </Button>
