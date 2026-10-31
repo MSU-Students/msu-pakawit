@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../offline/db';
+import React, { useState, useEffect } from 'react';
 import { Store, ShoppingCart, MapPin, Percent, Info, Minus, Plus, Trash2 } from 'lucide-react';
 import { Card } from '../shared/Card';
 import { Badge } from '../shared/Badge';
@@ -23,6 +25,59 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
 }) => {
   const { cart, addItem, removeItem, setQuantity, clearCart } = useCart(store.id);
   const [selectedDropZone, setSelectedDropZone] = useState('Science Complex Drop Hub');
+
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator === 'undefined' ? true : navigator.onLine
+  );
+
+  const cachedProducts = useLiveQuery(
+    () => db.products.where('storeId').equals(store.id).toArray(),
+    [store.id],
+    []
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline || products.length === 0) return;
+
+    const cacheProducts = async () => {
+      await db.products.bulkPut(
+        products.map((product) => ({
+          ...product,
+          isSynced: true,
+          updatedAt: Date.now(),
+        }))
+      );
+    };
+
+    void cacheProducts().catch((error) => {
+      console.error('Failed to cache catalog products:', error);
+    });
+  }, [isOnline, products]);
+
+  const catalogProducts: ProductItem[] = isOnline
+    ? products
+    : cachedProducts.map(({ id, storeId, name, category, basePrice, markupPrice, isAvailable }) => ({
+        id,
+        storeId,
+        name,
+        category,
+        basePrice,
+        markupPrice,
+        isAvailable,
+      }));
 
   const dropZones = [
     'Science Complex Drop Hub',
@@ -100,12 +155,18 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
         </div>
       </Card>
 
+    {!isOnline && (
+    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            You are offline. Showing cached products saved on this device.
+      </div>
+            )}
+
       {/* Main Grid: Catalog Products vs Cart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">
-              Campus Curated Catalog ({products.length})
+              Campus Curated Catalog ({catalogProducts.length})
             </h3>
             <span className="text-xs text-slate-500">
               On-demand purchase by peer student couriers
@@ -113,7 +174,7 @@ export const StoreCatalog: React.FC<StoreCatalogProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {products.map((product) => (
+            {catalogProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
