@@ -19,3 +19,18 @@ export interface ErrandTask {
   runnerName?: string;
   createdAt: number;
 }
+
+export interface ErrandOrderRequest {
+  buyerStudentId: string;
+  storeId: string;
+  items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
+  totalProductCost: number;
+  convenienceFee: number;
+  totalAmount: number;
+  dropZone: string;
+}
+
+export interface ErrandOrderReceipt {
+  orderId: string;
+  timestamp: string;
+}

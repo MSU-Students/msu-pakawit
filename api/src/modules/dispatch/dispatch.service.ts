@@ -12,12 +12,19 @@ export class DispatchService {
     private readonly orderRepo: Repository<ErrandOrder>,
   ) {}
 
-  async createErrandOrder(dto: CreateErrandDto): Promise<ErrandOrder> {
+  async createErrandOrder(
+    dto: CreateErrandDto,
+  ): Promise<{ orderId: string; timestamp: string }> {
     const order = this.orderRepo.create({
       ...dto,
       status: ErrandOrderStatus.PENDING,
     });
-    return this.orderRepo.save(order);
+    const savedOrder = await this.orderRepo.save(order);
+
+    return {
+      orderId: savedOrder.id,
+      timestamp: savedOrder.createdAt.toISOString(),
+    };
   }
 
   async findPendingErrands(): Promise<ErrandOrder[]> {

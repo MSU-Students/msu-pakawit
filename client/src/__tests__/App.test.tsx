@@ -1,7 +1,7 @@
 import { apiClient } from '../modules/shared/apiClient';
 import type { ApiResponse } from '../modules/shared/types';
 import type { UserProfileData } from '../modules/users/UserProfile';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 jest.mock('../modules/shared/apiClient', () => ({
   apiClient: {
@@ -69,5 +69,30 @@ describe('MSU Pakawit App Shell (Sprint 0 Inception)', () => {
     expect(screen.getByText('+63 912 345 6789')).toBeInTheDocument();
     expect(screen.getByText('amina.personal@example.com')).toBeInTheDocument();
     expect(profileRequest).toHaveBeenCalledWith('/users/me', 'dashboard-test-token');
+  });
+
+  it('places an order and displays the receipt returned by the API', async () => {
+    const orderReceipt = {
+      orderId: 'order-uuid-1',
+      timestamp: '2026-10-31T17:15:00.000Z',
+    };
+    const createOrder = jest.spyOn(apiClient, 'post').mockResolvedValue({
+      success: true,
+      data: orderReceipt,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add to Errand Cart' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Place Errand Request (COD)' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Order receipt' })).toBeInTheDocument();
+    });
+
+    expect(createOrder).toHaveBeenCalledWith('/errands', expect.objectContaining({
+      buyerStudentId: '2023-99999',
+    }));
+    expect(screen.getByText(orderReceipt.orderId)).toBeInTheDocument();
+    expect(screen.getByText(orderReceipt.timestamp)).toBeInTheDocument();
   });
 });
