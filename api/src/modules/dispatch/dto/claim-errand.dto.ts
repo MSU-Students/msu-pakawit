@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ClaimErrandDto {
@@ -6,4 +6,13 @@ export class ClaimErrandDto {
   @IsString()
   @IsNotEmpty()
   runnerStudentId: string;
+
+  @ApiProperty({
+    example: 134.0,
+    description: 'Cash on delivery amount collected by the claiming courier',
+    minimum: 0,
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  collectedCodAmount: number;
 }
