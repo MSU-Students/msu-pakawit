@@ -41,6 +41,9 @@ export class ErrandOrder {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  collectedCodAmount: number | null;
+
   @Column()
   dropZone: string;
 

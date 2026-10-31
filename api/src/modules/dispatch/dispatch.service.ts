@@ -37,6 +37,7 @@ export class DispatchService {
     }
 
     errand.runnerStudentId = dto.runnerStudentId;
+    errand.collectedCodAmount = dto.collectedCodAmount;
     errand.status = ErrandOrderStatus.ACCEPTED;
     return this.orderRepo.save(errand);
   }
