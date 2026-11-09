@@ -5,6 +5,9 @@ import { syncEngine } from './modules/offline/syncEngine';
 import { Navbar } from './modules/shared/Navbar';
 import { OfflineBanner } from './modules/shared/OfflineBanner';
 import { StoreCatalog } from './modules/storefront/StoreCatalog';
+import { ProductSearch } from './modules/storefront/ProductSearch';
+import { apiClient } from './modules/shared/apiClient';
+import type { LocalStore, LocalProduct } from './modules/offline/types';
 import { ErrandFeed } from './modules/dispatch/ErrandFeed';
 import { AcademicScheduleGuard } from './modules/guardrails/AcademicScheduleGuard';
 import { OTPVerificationModal } from './modules/guardrails/OTPVerificationModal';
@@ -19,6 +22,27 @@ import { ProfileSettings } from './modules/users/ProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
+
+interface StoreApiRecord {
+  id: string;
+  hostStudentId: string;
+  hostName: string;
+  name: string;
+  description?: string;
+  vendorOrigin: string;
+  defaultConvenienceFee: number | string;
+  markupPercentage: number | string;
+  isActive: boolean;
+  products: {
+    id: string;
+    storeId: string;
+    name: string;
+    category: string;
+    basePrice: number | string;
+    markupPrice: number | string;
+    isAvailable: boolean;
+  }[];
+}
 
 // Mock seed data for Sprint 0 inception showcase
 const mockStore: VirtualStore = {
@@ -109,6 +133,7 @@ export const App: React.FC = () => {
     window.localStorage.getItem('accessToken'),
   );
   const [activeTab, setActiveTab] = useState('storefront');
+  const [selectedStoreId, setSelectedStoreId] = useState(mockStore.id);
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtpModalErrandId, setActiveOtpModalErrandId] = useState<string | null>(null);
@@ -117,6 +142,8 @@ export const App: React.FC = () => {
 
   // Live Query Dexie IndexedDB sync queue
   const pendingSyncQueue = useLiveQuery(() => db.getPendingSyncItems()) || [];
+  const cachedStores = useLiveQuery(() => db.stores.toArray()) || [];
+  const cachedProducts = useLiveQuery(() => db.products.toArray()) || [];
 
   useEffect(() => {
     let isMounted = true;
@@ -136,6 +163,79 @@ export const App: React.FC = () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadStores = async () => {
+      try {
+        const response = await apiClient.get<StoreApiRecord[]>('/stores');
+
+        if (!response.data || !isMounted) return;
+
+        const stores: LocalStore[] = response.data.map((store) => ({
+          id: store.id,
+          hostStudentId: store.hostStudentId,
+          name: store.name,
+          description: store.description,
+          vendorOrigin: store.vendorOrigin,
+          defaultConvenienceFee: Number(store.defaultConvenienceFee),
+          markupPercentage: Number(store.markupPercentage),
+          isActive: store.isActive,
+          isSynced: true,
+          updatedAt: Date.now(),
+        }));
+
+        const products: LocalProduct[] = response.data.flatMap((store) =>
+          store.products.map((product) => ({
+            id: product.id,
+            storeId: product.storeId,
+            name: product.name,
+            category: product.category,
+            basePrice: Number(product.basePrice),
+            markupPrice: Number(product.markupPrice),
+            isAvailable: product.isAvailable,
+            isSynced: true,
+            updatedAt: Date.now(),
+          }))
+        );
+
+        await db.stores.bulkPut(stores);
+        await db.products.bulkPut(products);
+      } catch (error) {
+        console.error('Failed to load stores and products', error);
+      }
+    };
+
+    void loadStores();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedLocalStore =
+    cachedStores.find((store) => store.id === selectedStoreId) || cachedStores[0];
+
+  const selectedStore: VirtualStore = selectedLocalStore
+    ? {
+        id: selectedLocalStore.id,
+        name: selectedLocalStore.name,
+        hostName: selectedLocalStore.hostStudentId,
+        hostStudentId: selectedLocalStore.hostStudentId,
+        vendorOrigin: selectedLocalStore.vendorOrigin,
+        defaultConvenienceFee: selectedLocalStore.defaultConvenienceFee,
+        markupPercentage: selectedLocalStore.markupPercentage,
+        rating: 0,
+        isOpen: true,
+      }
+    : mockStore;
+
+  const selectedProducts: ProductItem[] = selectedLocalStore
+    ? cachedProducts
+        .filter((product) => product.storeId === selectedLocalStore.id)
+        .map(({ isSynced, updatedAt, ...product }) => product)
+    : mockProducts;
 
   // Simulated live tasks state
   const [tasks, setTasks] = useState<ErrandTask[]>([
@@ -174,11 +274,12 @@ export const App: React.FC = () => {
   }, []);
 
   const handlePlaceOrder = async (orderData: any) => {
+    const orderStore = cachedStores.find((store) => store.id === orderData.storeId);
     const newTaskId = `ERR-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTask: ErrandTask = {
       id: newTaskId,
-      storeName: mockStore.name,
-      vendorOrigin: mockStore.vendorOrigin,
+      storeName: orderStore?.name || selectedStore.name,
+      vendorOrigin: orderStore?.vendorOrigin || selectedStore.vendorOrigin,
       dropZone: orderData.dropZone,
       itemCount: orderData.items.length,
       totalAmount: orderData.totalAmount,
@@ -192,7 +293,7 @@ export const App: React.FC = () => {
     await db.orders.put({
       id: newTaskId,
       buyerStudentId: '2023-99999',
-      storeId: mockStore.id,
+      storeId: orderData.storeId || selectedStore.id,
       items: orderData.items,
       totalProductCost: orderData.totalProductCost,
       convenienceFee: orderData.convenienceFee,
@@ -343,9 +444,14 @@ export const App: React.FC = () => {
         {activeTab === 'storefront' && (
           <div className="space-y-6">
             <UserProfile key={accessToken ?? 'signed-out'} compact />
+            <ProductSearch
+              stores={cachedStores}
+              products={cachedProducts}
+              onSelectStore={setSelectedStoreId}
+            />
             <StoreCatalog
-              store={mockStore}
-              products={mockProducts}
+              store={selectedStore}
+              products={selectedProducts}
               onPlaceOrder={handlePlaceOrder}
             />
           </div>
