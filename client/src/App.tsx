@@ -15,7 +15,7 @@ import { ProfileImageSettings } from './modules/users/ProfileImageSettings';
 import { isCourierLockedBySchedule } from './modules/guardrails/scheduleValidator';
 import { UserProfile } from './modules/users/UserProfile';
 import { SignIn } from './modules/auth/SignIn';
-import { ProfileSettings } from './modules/users/ProfileSettings';
+import { MerchantProfileSettings } from './modules/users/MerchantProfileSettings';
 import type { VirtualStore, ProductItem } from './modules/storefront/types';
 import type { ErrandTask } from './modules/dispatch/types';
 import type { ScheduleBlock } from './modules/guardrails/types';
@@ -338,6 +338,13 @@ export const App: React.FC = () => {
           >
             Profile
           </Button>
+          <Button
+            size="sm"
+            variant={activeTab === 'settings' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('settings')}
+          >
+            Profile Settings
+          </Button>
         </div>
 
         {activeTab === 'storefront' && (
@@ -376,6 +383,8 @@ export const App: React.FC = () => {
             onDelete={handleProfileImageDelete}
           />
         )}
+
+        {activeTab === 'settings' && <MerchantProfileSettings />}
 
         {activeTab === 'offline' && (
           <div className="space-y-6">
