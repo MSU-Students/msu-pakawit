@@ -9,6 +9,7 @@ import { SyncModule } from './modules/sync/sync.module';
 import { GuardrailsModule } from './modules/guardrails/guardrails.module';
 import { UserModule } from './modules/users/user.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AuthModule } from './modules/auth/auth.module';
     GuardrailsModule,
     UserModule,
     AuthModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}
