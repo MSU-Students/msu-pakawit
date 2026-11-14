@@ -17,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const navItems = [
     { id: 'storefront', label: 'Storefront', icon: ShoppingBag },
+    { id: 'store-builder', label: 'Store Builder', icon: ShoppingBag },
     { id: 'dispatch', label: 'Errand Dispatch', icon: Navigation },
     { id: 'guardrails', label: 'Time-Lock & OTP', icon: ShieldCheck },
     { id: 'offline', label: 'Offline Sync', icon: Clock },
